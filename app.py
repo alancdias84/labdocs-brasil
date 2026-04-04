@@ -547,4 +547,13 @@ if query:
                     'tok_in': tok_in, 'tok_out': tok_out
                 })
             except Exception as e:
-                st.error(f"Erro: {e}")
+    err = str(e)
+    if '429' in err:
+        st.warning(
+            "⚠️ **Limite de requisições atingido** para este modelo.\n\n"
+            "O modelo gratuito selecionado atingiu o limite de uso da OpenRouter. "
+            "**Troque o modelo na barra lateral** (ex: `meta-llama/llama-3.1-8b-instruct:free`) "
+            "e tente novamente."
+        )
+    else:
+        st.error(f"Erro: {e}")
