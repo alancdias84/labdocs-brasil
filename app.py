@@ -23,186 +23,87 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@300;400;500;600&display=swap');
 
-/* Base */
-html, body, [class*="css"] {
-    font-family: 'Source Sans 3', sans-serif;
-}
+html, body, [class*="css"] { font-family: 'Source Sans 3', sans-serif; }
 .stApp {
     background: linear-gradient(145deg, #fdf6f0 0%, #f0f4fd 50%, #f5fdf0 100%);
     min-height: 100vh;
 }
-.main .block-container {
-    padding-top: 1.5rem;
-    max-width: 860px;
-}
+.main .block-container { padding-top: 1.5rem; max-width: 860px; }
 
-/* Header */
 .lab-header {
-    background: white;
-    border-radius: 16px;
-    padding: 28px 32px;
-    margin-bottom: 24px;
-    border: 1px solid #e8e0f5;
+    background: white; border-radius: 16px; padding: 28px 32px;
+    margin-bottom: 24px; border: 1px solid #e8e0f5;
     box-shadow: 0 2px 20px rgba(180,160,220,0.10);
 }
 .lab-title {
-    font-family: 'Lora', serif;
-    font-size: 2rem;
-    font-weight: 600;
-    color: #3d3560;
-    margin: 0 0 4px 0;
-    line-height: 1.2;
+    font-family: 'Lora', serif; font-size: 2rem; font-weight: 600;
+    color: #3d3560; margin: 0 0 4px 0; line-height: 1.2;
 }
-.lab-subtitle {
-    color: #8c7baa;
-    font-size: 14px;
-    font-weight: 400;
-    margin: 0;
-}
-.badge-row {
-    display: flex;
-    gap: 8px;
-    margin-top: 14px;
-    flex-wrap: wrap;
-}
+.lab-subtitle { color: #8c7baa; font-size: 14px; font-weight: 400; margin: 0; }
+.badge-row { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
 .badge {
-    background: #f0ebff;
-    color: #6b4fa0;
-    border-radius: 100px;
-    padding: 3px 12px;
-    font-size: 11px;
-    font-weight: 500;
-    border: 1px solid #ddd5f5;
+    background: #f0ebff; color: #6b4fa0; border-radius: 100px;
+    padding: 3px 12px; font-size: 11px; font-weight: 500; border: 1px solid #ddd5f5;
 }
 
-/* Cards */
 .card {
-    background: white;
-    border-radius: 14px;
-    padding: 22px 26px;
-    margin-bottom: 16px;
-    border: 1px solid #ece8f5;
+    background: white; border-radius: 14px; padding: 22px 26px;
+    margin-bottom: 16px; border: 1px solid #ece8f5;
     box-shadow: 0 1px 12px rgba(160,140,210,0.08);
 }
-.card-title {
-    font-family: 'Lora', serif;
-    font-size: 15px;
-    font-weight: 600;
-    color: #3d3560;
-    margin-bottom: 14px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
 
-/* Answer */
 .answer-card {
     background: linear-gradient(135deg, #fdf8ff 0%, #f5f0ff 100%);
-    border-radius: 14px;
-    padding: 24px 28px;
-    margin-bottom: 16px;
-    border: 1px solid #ddd0f5;
-    box-shadow: 0 2px 16px rgba(150,120,210,0.10);
+    border-radius: 14px; padding: 24px 28px; margin-bottom: 16px;
+    border: 1px solid #ddd0f5; box-shadow: 0 2px 16px rgba(150,120,210,0.10);
 }
-.answer-meta {
-    display: flex;
-    gap: 16px;
-    margin-bottom: 16px;
-    flex-wrap: wrap;
-    align-items: center;
-}
+.answer-meta { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
 .meta-pill {
-    background: white;
-    border: 1px solid #e0d8f5;
-    border-radius: 100px;
-    padding: 3px 12px;
-    font-size: 12px;
-    color: #6b4fa0;
-    font-weight: 500;
+    background: white; border: 1px solid #e0d8f5; border-radius: 100px;
+    padding: 3px 12px; font-size: 12px; color: #6b4fa0; font-weight: 500;
 }
 .meta-pill.conf-alta  { background: #f0fff4; border-color: #a8e6bf; color: #2d6a4f; }
 .meta-pill.conf-media { background: #fffbf0; border-color: #f5d78e; color: #8a6914; }
 .meta-pill.conf-baixa { background: #fff5f5; border-color: #f5b8b8; color: #8a2020; }
-.answer-text {
-    font-size: 15px;
-    line-height: 1.85;
-    color: #2d2840;
-    white-space: pre-wrap;
-    word-break: break-word;
-}
+.answer-text { font-size: 15px; line-height: 1.85; color: #2d2840; white-space: pre-wrap; word-break: break-word; }
 
-/* Source cards */
 .src-card {
-    background: white;
-    border-radius: 10px;
-    padding: 14px 18px;
-    margin-bottom: 8px;
-    border: 1px solid #ece8f5;
-    border-left: 4px solid #b39ddb;
+    background: white; border-radius: 10px; padding: 14px 18px; margin-bottom: 8px;
+    border: 1px solid #ece8f5; border-left: 4px solid #b39ddb;
     box-shadow: 0 1px 6px rgba(150,120,200,0.06);
 }
-.src-title {
-    font-weight: 600;
-    font-size: 13px;
-    color: #4a3880;
-    margin-bottom: 4px;
-}
-.src-meta {
-    font-size: 11px;
-    color: #9e8fc0;
-    font-family: monospace;
-    margin-bottom: 6px;
-}
-.src-snip {
-    font-size: 13px;
-    color: #4a445a;
-    line-height: 1.6;
-}
+.src-title { font-weight: 600; font-size: 13px; color: #4a3880; margin-bottom: 4px; }
+.src-meta { font-size: 11px; color: #9e8fc0; font-family: monospace; margin-bottom: 6px; }
+.src-snip { font-size: 13px; color: #4a445a; line-height: 1.6; }
 
-/* Conflict */
 .conflict-alta  { border-left-color: #f5a0a0 !important; }
 .conflict-media { border-left-color: #f5d78e !important; }
 
-/* Strimlit overrides */
 .stButton > button {
     background: linear-gradient(135deg, #7c5cbf 0%, #9b7dd4 100%);
-    color: white;
-    border: none;
-    border-radius: 10px;
-    font-family: 'Source Sans 3', sans-serif;
-    font-weight: 600;
-    font-size: 14px;
-    padding: 10px 28px;
-    transition: opacity 0.2s;
-    width: 100%;
+    color: white; border: none; border-radius: 10px;
+    font-family: 'Source Sans 3', sans-serif; font-weight: 600;
+    font-size: 14px; padding: 10px 28px; transition: opacity 0.2s; width: 100%;
 }
 .stButton > button:hover { opacity: 0.88; }
 .stButton > button:disabled { opacity: 0.45; }
-
-.stTextInput > div > input, .stFileUploader label {
-    border-radius: 10px;
-    border-color: #ddd5f5;
-    font-family: 'Source Sans 3', sans-serif;
-}
+.stTextInput > div > input { border-radius: 10px; border-color: #ddd5f5; font-family: 'Source Sans 3', sans-serif; }
 .stTextInput > div > input:focus { border-color: #9b7dd4; box-shadow: 0 0 0 2px rgba(155,125,212,0.15); }
-
-div[data-testid="stSidebar"] {
-    background: white;
-    border-right: 1px solid #ece8f5;
-}
+div[data-testid="stSidebar"] { background: white; border-right: 1px solid #ece8f5; }
 .stSlider > div > div > div { background: #9b7dd4; }
 .stSelectbox > div > div { border-radius: 10px; border-color: #ddd5f5; }
-
 .stSuccess { background: #f0fff4; border-radius: 10px; }
 .stWarning { background: #fffbf0; border-radius: 10px; }
 .stError   { background: #fff5f5; border-radius: 10px; }
-
 hr { border-color: #ece8f5; margin: 1rem 0; }
-
-/* Chat input */
 .stChatInput > div { border-radius: 14px; border-color: #ddd5f5; }
 </style>
 """, unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────────────────────────────
+# API KEY — lida dos Secrets do Streamlit (sem expor ao usuário)
+# ─────────────────────────────────────────────────────────────────────
+api_key = st.secrets.get("OPENROUTER_API_KEY", "")
 
 # ─────────────────────────────────────────────────────────────────────
 # DATACLASSES
@@ -328,13 +229,23 @@ def chunk_plain(text, doc_id, filename, chunk_words=200, overlap=40):
     return chunks
 
 # ─────────────────────────────────────────────────────────────────────
-# INDEX BUILDER
+# INDEX BUILDER — lê documentos da pasta documents/ no repositório
 # ─────────────────────────────────────────────────────────────────────
 @st.cache_resource(show_spinner=False)
-def build_index(file_contents):
+def build_index_from_folder():
     from rank_bm25 import BM25Okapi
     from sentence_transformers import SentenceTransformer
     import faiss
+
+    docs_path = Path("documents")
+    SUPPORTED = {'.pdf', '.rmd', '.md', '.txt'}
+    file_contents = []
+    for f in sorted(docs_path.glob("*")):
+        if f.suffix.lower() in SUPPORTED:
+            file_contents.append((f.name, f.read_bytes()))
+
+    if not file_contents:
+        return None
 
     all_meta, all_chunks = [], []
     for fname, data in file_contents:
@@ -349,10 +260,12 @@ def build_index(file_contents):
             raw = re.sub(r'[ \t]+', ' ', raw); raw = re.sub(r'\n{3,}', '\n\n', raw).strip()
             chunks = chunk_plain(raw, doc_id, fname)
             page_count = 0
-        all_meta.append(DocMeta(doc_id=doc_id, filename=fname,
+        all_meta.append(DocMeta(
+            doc_id=doc_id, filename=fname,
             file_type=ext.lstrip('.').upper(), title=Path(fname).stem.replace('_', ' '),
             version=get_version(raw), date=get_date(raw),
-            page_count=page_count, char_count=len(raw)))
+            page_count=page_count, char_count=len(raw)
+        ))
         all_chunks.extend(chunks)
 
     tok_corpus = [tokenize(c.text) for c in all_chunks]
@@ -375,6 +288,7 @@ def build_index(file_contents):
         'faiss':      faiss_idx,
         'embeddings': embeddings,
         'model':      model,
+        'filenames':  [f for f, _ in file_contents],
     }
 
 # ─────────────────────────────────────────────────────────────────────
@@ -443,7 +357,7 @@ def detect_conflicts(results, embeddings):
                 conflicts.append({'sev':'Média','desc':f'Orientações conflitantes entre "{ca.filename}" e "{cb.filename}"'})
     return conflicts
 
-def generate(query, results, meta_map, api_key, model_id, max_tokens):
+def generate(query, results, meta_map, model_id):
     parts = []
     for i, r in enumerate(results, 1):
         c = r['chunk']
@@ -475,57 +389,21 @@ def generate(query, results, meta_map, api_key, model_id, max_tokens):
     return text, len(prompt.split()), len(text.split())
 
 # ─────────────────────────────────────────────────────────────────────
-# SESSION STATE
+# INICIALIZAÇÃO — indexa documentos automaticamente ao carregar
 # ─────────────────────────────────────────────────────────────────────
 if 'index'   not in st.session_state: st.session_state.index   = None
 if 'history' not in st.session_state: st.session_state.history = []
-if 'files_key' not in st.session_state: st.session_state.files_key = None
+
+if st.session_state.index is None:
+    with st.spinner("Carregando e indexando documentos... (pode levar 1-2 min na primeira vez)"):
+        st.session_state.index = build_index_from_folder()
 
 # ─────────────────────────────────────────────────────────────────────
 # SIDEBAR
 # ─────────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### 🔑 API Key")
-    api_key = st.text_input("OpenRouter API Key", type="password",
-                            placeholder="sk-or-v1-...",
-                            help="Obtenha gratuitamente em openrouter.ai")
-    if api_key:
-        if api_key.startswith('sk-or-'):
-            st.success("✓ Formato válido")
-        else:
-            st.error("Formato inválido (sk-or-...)")
-
-    st.markdown("---")
-    st.markdown("### 📄 Documentos")
-    uploaded = st.file_uploader("PDF, RMD, MD, TXT",
-                                type=['pdf','rmd','md','txt'],
-                                accept_multiple_files=True,
-                                label_visibility="collapsed")
-
-    if uploaded:
-        files_key = tuple(sorted(f.name for f in uploaded))
-        if files_key != st.session_state.files_key:
-            st.session_state.files_key = files_key
-            st.session_state.index = None
-            st.session_state.history = []
-
-        if st.button("⚡ Indexar documentos", disabled=not api_key):
-            with st.spinner("Indexando... (primeira vez pode demorar 1-2 min)"):
-                try:
-                    file_contents = tuple((f.name, f.read()) for f in uploaded)
-                    st.session_state.index = build_index(file_contents)
-                    st.session_state.history = []
-                    st.success(f"✓ {len(uploaded)} documento(s) indexado(s)")
-                except Exception as e:
-                    st.error(f"Erro: {e}")
-
-    st.markdown("---")
     st.markdown("### ⚙️ Configurações")
     top_k = st.slider("Top-K fontes", 2, 8, 4)
-    max_tokens = st.select_slider("Tamanho da resposta",
-                                  options=[200,400,600,800],
-                                  value=400,
-                                  format_func=lambda x: {200:"Curta",400:"Média",600:"Longa",800:"Completa"}[x])
     model_id = st.selectbox("Modelo (gratuito)", [
         "qwen/qwen3.6-plus:free",
         "meta-llama/llama-3.1-8b-instruct:free",
@@ -537,11 +415,13 @@ with st.sidebar:
         idx = st.session_state.index
         docs = sorted(set(c.filename for c in idx['chunks']))
         doc_filter = st.selectbox("Filtrar por documento", ['Todos'] + docs)
-        st.caption(f"{len(idx['chunks'])} chunks · {len(docs)} doc(s)")
-        if st.button("↩ Limpar e recomeçar"):
-            st.session_state.index = None
+        st.caption(f"{len(idx['chunks'])} chunks · {len(docs)} documento(s)")
+        st.markdown("---")
+        st.markdown("**Documentos indexados:**")
+        for fname in idx.get('filenames', docs):
+            st.caption(f"📄 {fname}")
+        if st.button("↩ Limpar histórico"):
             st.session_state.history = []
-            st.session_state.files_key = None
             st.rerun()
     else:
         doc_filter = 'Todos'
@@ -562,122 +442,109 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Empty state
 if not st.session_state.index:
-    st.markdown("""
-    <div class="card" style="text-align:center; padding: 48px 32px;">
-        <div style="font-size:3rem; margin-bottom:16px">📂</div>
-        <div style="font-family:'Lora',serif; font-size:1.2rem; color:#3d3560; margin-bottom:8px;">
-            Pronto para começar
-        </div>
-        <div style="color:#8c7baa; font-size:14px; line-height:1.7;">
-            1. Cole sua API key do OpenRouter na barra lateral<br>
-            2. Faça upload dos seus documentos<br>
-            3. Clique em <b>Indexar documentos</b><br>
-            4. Faça sua pergunta
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-else:
-    # Chat history
-    for h in st.session_state.history:
-        with st.chat_message("user"):
-            st.write(h['q'])
-        with st.chat_message("assistant", avatar="🧪"):
-            conf_class = {'Alta':'conf-alta','Média':'conf-media','Baixa':'conf-baixa'}[h['conf_label']]
-            st.markdown(f"""
-            <div class="answer-card">
-                <div class="answer-meta">
-                    <span class="meta-pill {conf_class}">Confiança: {h['conf_label']} ({h['conf']:.0%})</span>
-                    <span class="meta-pill">📥 {h['tok_in']} tokens</span>
-                    <span class="meta-pill">📤 {h['tok_out']} tokens</span>
-                    <span class="meta-pill">gratuito</span>
-                </div>
-                <div class="answer-text">{h['answer']}</div>
+    st.error("⚠️ Nenhum documento encontrado na pasta `documents/`. Adicione arquivos PDF, MD ou TXT ao repositório.")
+    st.stop()
+
+idx = st.session_state.index
+
+# Chat history
+for h in st.session_state.history:
+    with st.chat_message("user"):
+        st.write(h['q'])
+    with st.chat_message("assistant", avatar="🧪"):
+        conf_class = {'Alta':'conf-alta','Média':'conf-media','Baixa':'conf-baixa'}[h['conf_label']]
+        st.markdown(f"""
+        <div class="answer-card">
+            <div class="answer-meta">
+                <span class="meta-pill {conf_class}">Confiança: {h['conf_label']} ({h['conf']:.0%})</span>
+                <span class="meta-pill">📥 {h['tok_in']} tokens</span>
+                <span class="meta-pill">📤 {h['tok_out']} tokens</span>
+                <span class="meta-pill">gratuito</span>
             </div>
-            """, unsafe_allow_html=True)
-            with st.expander(f"📄 {len(h['results'])} fonte(s)"):
-                for i, r in enumerate(h['results'], 1):
-                    c = r['chunk']
-                    m = st.session_state.index['meta'].get(c.doc_id)
-                    v = m.version if m else 'N/A'; d = m.date if m else 'N/A'
-                    page_str = f"p. {c.page} · " if c.page > 0 else ''
-                    snip = best_snippet(c.text, h['q'], 150)
-                    st.markdown(f"""
-                    <div class="src-card">
-                        <div class="src-title">[{i}] {c.filename}</div>
-                        <div class="src-meta">v{v} · {d} · {page_str}{c.section[:55]} · {int(r['rel']*100)}% relevância</div>
-                        <div class="src-snip">{snip}…</div>
-                    </div>""", unsafe_allow_html=True)
-            if h['conflicts']:
-                with st.expander(f"⚠️ {len(h['conflicts'])} conflito(s) detectado(s)"):
-                    for conf in h['conflicts']:
-                        cls = 'conflict-alta' if conf['sev']=='Alta' else 'conflict-media'
-                        st.markdown(f'<div class="src-card {cls}"><b>{conf["sev"]}</b> · {conf["desc"]}</div>',
-                                    unsafe_allow_html=True)
-            else:
-                st.success("✓ Nenhum conflito detectado")
+            <div class="answer-text">{h['answer']}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        with st.expander(f"📄 {len(h['results'])} fonte(s)"):
+            for i, r in enumerate(h['results'], 1):
+                c = r['chunk']
+                m = idx['meta'].get(c.doc_id)
+                v = m.version if m else 'N/A'; d = m.date if m else 'N/A'
+                page_str = f"p. {c.page} · " if c.page > 0 else ''
+                snip = best_snippet(c.text, h['q'], 150)
+                st.markdown(f"""
+                <div class="src-card">
+                    <div class="src-title">[{i}] {c.filename}</div>
+                    <div class="src-meta">v{v} · {d} · {page_str}{c.section[:55]} · {int(r['rel']*100)}% relevância</div>
+                    <div class="src-snip">{snip}…</div>
+                </div>""", unsafe_allow_html=True)
+        if h['conflicts']:
+            with st.expander(f"⚠️ {len(h['conflicts'])} conflito(s) detectado(s)"):
+                for conf in h['conflicts']:
+                    cls = 'conflict-alta' if conf['sev']=='Alta' else 'conflict-media'
+                    st.markdown(f'<div class="src-card {cls}"><b>{conf["sev"]}</b> · {conf["desc"]}</div>',
+                                unsafe_allow_html=True)
+        else:
+            st.success("✓ Nenhum conflito detectado")
 
-    # Chat input
-    query = st.chat_input("Faça uma pergunta sobre seus documentos...")
-    if query:
-        with st.chat_message("user"):
-            st.write(query)
-        with st.chat_message("assistant", avatar="🧪"):
-            with st.spinner("Buscando fontes e gerando resposta..."):
-                try:
-                    idx = st.session_state.index
-                    results = retrieve(query, idx, top_k=top_k,
-                                       doc_filter=doc_filter if doc_filter != 'Todos' else None)
-                    if not results:
-                        st.warning("Nenhuma fonte relevante encontrada. Tente reformular.")
-                        st.stop()
-                    conflicts = detect_conflicts(results, idx['embeddings'])
-                    answer, tok_in, tok_out = generate(query, results, idx['meta'],
-                                                       api_key, model_id, max_tokens)
-                    avg_rel = sum(r['rel'] for r in results) / len(results)
-                    n_docs  = len(set(r['chunk'].doc_id for r in results))
-                    conf = min(1.0, avg_rel*0.6 + n_docs/3*0.3 - len([c for c in conflicts if c['sev']=='Alta'])*0.15)
-                    conf_label = 'Alta' if conf >= 0.65 else 'Média' if conf >= 0.35 else 'Baixa'
-                    conf_class = {'Alta':'conf-alta','Média':'conf-media','Baixa':'conf-baixa'}[conf_label]
+# Chat input
+query = st.chat_input("Faça uma pergunta sobre os documentos...")
+if query:
+    with st.chat_message("user"):
+        st.write(query)
+    with st.chat_message("assistant", avatar="🧪"):
+        with st.spinner("Buscando fontes e gerando resposta..."):
+            try:
+                results = retrieve(query, idx, top_k=top_k,
+                                   doc_filter=doc_filter if doc_filter != 'Todos' else None)
+                if not results:
+                    st.warning("Nenhuma fonte relevante encontrada. Tente reformular.")
+                    st.stop()
+                conflicts = detect_conflicts(results, idx['embeddings'])
+                answer, tok_in, tok_out = generate(query, results, idx['meta'], model_id)
+                avg_rel = sum(r['rel'] for r in results) / len(results)
+                n_docs  = len(set(r['chunk'].doc_id for r in results))
+                conf = min(1.0, avg_rel*0.6 + n_docs/3*0.3 - len([c for c in conflicts if c['sev']=='Alta'])*0.15)
+                conf_label = 'Alta' if conf >= 0.65 else 'Média' if conf >= 0.35 else 'Baixa'
+                conf_class = {'Alta':'conf-alta','Média':'conf-media','Baixa':'conf-baixa'}[conf_label]
 
-                    st.markdown(f"""
-                    <div class="answer-card">
-                        <div class="answer-meta">
-                            <span class="meta-pill {conf_class}">Confiança: {conf_label} ({conf:.0%})</span>
-                            <span class="meta-pill">📥 {tok_in} tokens</span>
-                            <span class="meta-pill">📤 {tok_out} tokens</span>
-                            <span class="meta-pill">gratuito</span>
-                        </div>
-                        <div class="answer-text">{answer}</div>
-                    </div>""", unsafe_allow_html=True)
+                st.markdown(f"""
+                <div class="answer-card">
+                    <div class="answer-meta">
+                        <span class="meta-pill {conf_class}">Confiança: {conf_label} ({conf:.0%})</span>
+                        <span class="meta-pill">📥 {tok_in} tokens</span>
+                        <span class="meta-pill">📤 {tok_out} tokens</span>
+                        <span class="meta-pill">gratuito</span>
+                    </div>
+                    <div class="answer-text">{answer}</div>
+                </div>""", unsafe_allow_html=True)
 
-                    with st.expander(f"📄 {len(results)} fonte(s) recuperada(s)"):
-                        for i, r in enumerate(results, 1):
-                            c = r['chunk']; m = idx['meta'].get(c.doc_id)
-                            v = m.version if m else 'N/A'; d = m.date if m else 'N/A'
-                            page_str = f"p. {c.page} · " if c.page > 0 else ''
-                            snip = best_snippet(c.text, query, 150)
-                            st.markdown(f"""
-                            <div class="src-card">
-                                <div class="src-title">[{i}] {c.filename}</div>
-                                <div class="src-meta">v{v} · {d} · {page_str}{c.section[:55]} · {int(r['rel']*100)}% relevância</div>
-                                <div class="src-snip">{snip}…</div>
-                            </div>""", unsafe_allow_html=True)
+                with st.expander(f"📄 {len(results)} fonte(s) recuperada(s)"):
+                    for i, r in enumerate(results, 1):
+                        c = r['chunk']; m = idx['meta'].get(c.doc_id)
+                        v = m.version if m else 'N/A'; d = m.date if m else 'N/A'
+                        page_str = f"p. {c.page} · " if c.page > 0 else ''
+                        snip = best_snippet(c.text, query, 150)
+                        st.markdown(f"""
+                        <div class="src-card">
+                            <div class="src-title">[{i}] {c.filename}</div>
+                            <div class="src-meta">v{v} · {d} · {page_str}{c.section[:55]} · {int(r['rel']*100)}% relevância</div>
+                            <div class="src-snip">{snip}…</div>
+                        </div>""", unsafe_allow_html=True)
 
-                    if conflicts:
-                        with st.expander(f"⚠️ {len(conflicts)} conflito(s) detectado(s)"):
-                            for conf_item in conflicts:
-                                cls = 'conflict-alta' if conf_item['sev']=='Alta' else 'conflict-media'
-                                st.markdown(f'<div class="src-card {cls}"><b>{conf_item["sev"]}</b> · {conf_item["desc"]}</div>',
-                                            unsafe_allow_html=True)
-                    else:
-                        st.success("✓ Nenhum conflito detectado")
+                if conflicts:
+                    with st.expander(f"⚠️ {len(conflicts)} conflito(s) detectado(s)"):
+                        for conf_item in conflicts:
+                            cls = 'conflict-alta' if conf_item['sev']=='Alta' else 'conflict-media'
+                            st.markdown(f'<div class="src-card {cls}"><b>{conf_item["sev"]}</b> · {conf_item["desc"]}</div>',
+                                        unsafe_allow_html=True)
+                else:
+                    st.success("✓ Nenhum conflito detectado")
 
-                    st.session_state.history.append({
-                        'q': query, 'answer': answer, 'results': results,
-                        'conflicts': conflicts, 'conf': conf, 'conf_label': conf_label,
-                        'tok_in': tok_in, 'tok_out': tok_out
-                    })
-                except Exception as e:
-                    st.error(f"Erro: {e}")
+                st.session_state.history.append({
+                    'q': query, 'answer': answer, 'results': results,
+                    'conflicts': conflicts, 'conf': conf, 'conf_label': conf_label,
+                    'tok_in': tok_in, 'tok_out': tok_out
+                })
+            except Exception as e:
+                st.error(f"Erro: {e}")
