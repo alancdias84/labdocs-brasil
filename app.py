@@ -91,7 +91,10 @@ html, body, [class*="css"] { font-family: 'Source Sans 3', sans-serif; }
 .stTextInput > div > input:focus { border-color: #9b7dd4; box-shadow: 0 0 0 2px rgba(155,125,212,0.15); }
 div[data-testid="stSidebar"] { background: white; border-right: 1px solid #ece8f5; }
 .stSlider > div > div > div { background: #9b7dd4; }
-.stSelectbox > div > div { border-radius: 10px; border-color: #ddd5f5; }
+.stSelectbox > div > div { border-radius: 10px; border-color: #ddd5f5; cursor: pointer; }
+.stSelectbox > div > div > div { cursor: pointer; }
+.stSelectbox span { cursor: pointer; }
+[data-baseweb="select"] * { cursor: pointer !important; }
 .stSuccess { background: #f0fff4; border-radius: 10px; }
 .stWarning { background: #fffbf0; border-radius: 10px; }
 .stError   { background: #fff5f5; border-radius: 10px; }
@@ -405,9 +408,11 @@ with st.sidebar:
     st.markdown("### ⚙️ Configurações")
     top_k = st.slider("Top-K fontes", 2, 8, 4)
     model_id = st.selectbox("Modelo (gratuito)", [
+        "deepseek/deepseek-chat-v3.1:free",
+        "meta-llama/llama-4-maverick:free",
         "qwen/qwen3.6-plus:free",
+        "deepseek/deepseek-r1:free",
         "meta-llama/llama-3.1-8b-instruct:free",
-        "nvidia/nemotron-3-super-120b-a12b:free",
     ])
 
     if st.session_state.index:
@@ -551,9 +556,15 @@ if query:
                 if '429' in err:
                     st.warning(
                         "⚠️ **Limite de requisições atingido** para este modelo.\n\n"
-                        "O modelo gratuito selecionado atingiu o limite de uso da OpenRouter. "
+                        "O modelo gratuito atingiu o limite de uso da OpenRouter. "
                         "**Troque o modelo na barra lateral** (ex: `meta-llama/llama-3.1-8b-instruct:free`) "
                         "e tente novamente. Os limites são resetados automaticamente após alguns minutos."
+                    )
+                elif '404' in err:
+                    st.warning(
+                        "⚠️ **Modelo não encontrado.**\n\n"
+                        "O modelo selecionado não está disponível na OpenRouter no momento. "
+                        "**Troque o modelo na barra lateral** e tente novamente."
                     )
                 else:
                     st.error(f"Erro inesperado: {e}")
