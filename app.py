@@ -262,7 +262,7 @@ def build_index():
                 )
             )
 
-    model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+    model = SentenceTransformer('paraphrase-multilingual-mpnet-base-v2')
     embeddings = model.encode(
         [c.text for c in all_chunks],
         normalize_embeddings=True
