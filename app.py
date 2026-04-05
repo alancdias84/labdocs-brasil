@@ -55,8 +55,26 @@ html, body, [class*="css"] { font-family: 'Source Sans 3', sans-serif; }
 .meta-pill.conf-baixa { background: #fff5f5; border-color: #f5b8b8; color: #8a2020; }
 
 .answer-text {
-    font-size: 15px; line-height: 1.85; color: #2d2840;
-    white-space: pre-wrap; word-break: break-word;
+    font-size: 15px;
+    line-height: 1.72;
+    color: #2d2840;
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: anywhere;
+}
+.answer-text p {
+    margin: 0 0 0.75rem 0;
+}
+.answer-text p:last-child {
+    margin-bottom: 0;
+}
+.answer-text ul {
+    margin: 0.15rem 0 0.9rem 1.2rem;
+    padding-left: 1rem;
+}
+.answer-text li {
+    margin: 0.22rem 0;
+    line-height: 1.62;
 }
 
 .src-card {
@@ -260,6 +278,46 @@ def friendly_model_error(raw_error: str) -> str:
     if "empty response" in txt:
         return "O serviço de IA não retornou conteúdo utilizável."
     return "Não foi possível gerar a resposta com os modelos automáticos disponíveis neste momento."
+
+# ─────────────────────────────────────────────────────────────────────
+# FORMAT HELPERS
+# ─────────────────────────────────────────────────────────────────────
+def format_answer_html(text: str) -> str:
+    text = (text or "").replace("\r\n", "\n").replace("\r", "\n")
+    text = re.sub(r'\n{3,}', '\n\n', text).strip()
+
+    lines = [ln.rstrip() for ln in text.split("\n")]
+    html_parts = []
+    list_items = []
+
+    def flush_list():
+        nonlocal list_items
+        if list_items:
+            items_html = "".join(f"<li>{html.escape(item)}</li>" for item in list_items)
+            html_parts.append(f"<ul>{items_html}</ul>")
+            list_items = []
+
+    for raw_line in lines:
+        line = raw_line.strip()
+
+        if not line:
+            flush_list()
+            continue
+
+        bullet_match = re.match(r"^[-•*]\s+(.*)$", line)
+        if bullet_match:
+            list_items.append(bullet_match.group(1).strip())
+            continue
+
+        flush_list()
+        html_parts.append(f"<p>{html.escape(line)}</p>")
+
+    flush_list()
+
+    if not html_parts:
+        return f"<p>{html.escape(text)}</p>"
+
+    return "".join(html_parts)
 
 # ─────────────────────────────────────────────────────────────────────
 # EXTRACTION
@@ -759,6 +817,7 @@ for h in st.session_state.history:
         st.write(h['q'])
 
     with st.chat_message("assistant", avatar="🧪"):
+        formatted_answer = format_answer_html(h["answer"])
         st.markdown(
             f"""
             <div class="answer-card">
@@ -767,7 +826,7 @@ for h in st.session_state.history:
                     <span class="meta-pill">Modelo usado: {escape_html(h.get('used_model', 'N/A'))}</span>
                     <span class="meta-pill">📥 {h['t_in']} | 📤 {h['t_out']} tokens</span>
                 </div>
-                <div class="answer-text">{escape_html(h["answer"])}</div>
+                <div class="answer-text">{formatted_answer}</div>
             </div>
             """,
             unsafe_allow_html=True
@@ -789,6 +848,7 @@ if query and st.session_state.index:
                 res = retrieve(query, st.session_state.index)
                 ans, t_in, t_out, ok, reason, used_model = generate(query, res)
                 conf_label, conf_class = confidence_label(res)
+                formatted_answer = format_answer_html(ans)
 
                 st.markdown(
                     f"""
@@ -798,7 +858,7 @@ if query and st.session_state.index:
                             <span class="meta-pill">Modelo usado: {escape_html(used_model)}</span>
                             <span class="meta-pill">📥 {t_in} | 📤 {t_out} tokens</span>
                         </div>
-                        <div class="answer-text">{escape_html(ans)}</div>
+                        <div class="answer-text">{formatted_answer}</div>
                     </div>
                     """,
                     unsafe_allow_html=True
