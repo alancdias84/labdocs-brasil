@@ -1,5 +1,5 @@
 import streamlit as st
-import re, json, hashlib, html, urllib.request, urllib.error, socket
+import re, json, hashlib, html, urllib.request, urllib.error, socket, unicodedata
 import numpy as np
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -93,7 +93,6 @@ div[data-testid="stSidebar"] { background: white; border-right: 1px solid #ece8f
 # ─────────────────────────────────────────────────────────────────────
 api_key = st.secrets.get("OPENROUTER_API_KEY", "")
 
-# Modelos internos em cascata
 MODEL_CANDIDATES = [
     "qwen/qwen3.6-plus:free",
     "stepfun/step-3.5-flash:free",
@@ -102,6 +101,14 @@ MODEL_CANDIDATES = [
     "arcee-ai/trinity-large-preview:free",
     "minimax/minimax-m2.5:free"
 ]
+
+# Opcional: equivalências simples do domínio
+DOMAIN_SYNONYMS = {
+    "resultado": ["valor", "laudo"],
+    "critico": ["critico", "criticos", "critic", "urgente"],
+    "referencia": ["referencia", "limite", "intervalo"],
+    "poct": ["point", "care", "testing"],
+}
 
 # ─────────────────────────────────────────────────────────────────────
 # DATACLASSES
@@ -133,19 +140,78 @@ class Chunk:
 # NLP HELPERS
 # ─────────────────────────────────────────────────────────────────────
 STOPWORDS_PT = set([
-    'a','ao','aos','as','até','com','como','da','das','de','do','dos','e','ela','ele',
-    'em','na','nas','no','nos','ou','para','por','que','se','um','uma','é','à','o','os',
-    'ser','foi','são','uma','uns','umas','dos','das'
+    'a','ao','aos','as','ate','com','como','da','das','de','do','dos','e','ela','ele',
+    'em','na','nas','no','nos','ou','para','por','que','se','um','uma','o','os',
+    'ser','foi','sao','uns','umas'
 ])
 
-def tokenize(text: str):
-    text = re.sub(r'[^\w\s]', ' ', text.lower())
-    return [t for t in text.split() if len(t) > 1 and t not in STOPWORDS_PT]
-
 def normalize_text(text: str) -> str:
-    text = text.replace('\x00', ' ')
+    text = (text or "").replace('\x00', ' ')
     text = re.sub(r'\s+', ' ', text).strip()
     return text
+
+def strip_accents(text: str) -> str:
+    text = unicodedata.normalize("NFD", text)
+    return "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
+
+def normalize_for_search(text: str) -> str:
+    text = normalize_text(text).lower()
+    text = strip_accents(text)
+    text = re.sub(r'[^\w\s]', ' ', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+def normalize_term(term: str) -> str:
+    term = strip_accents(term.lower().strip())
+
+    if len(term) > 4:
+        if term.endswith("oes"):
+            term = term[:-3] + "ao"
+        elif term.endswith("aes"):
+            term = term[:-3] + "ao"
+        elif term.endswith("eis"):
+            term = term[:-3] + "el"
+        elif term.endswith("ais"):
+            term = term[:-3] + "al"
+        elif term.endswith("is"):
+            term = term[:-2] + "il"
+        elif term.endswith("ns"):
+            term = term[:-2] + "m"
+        elif term.endswith("es"):
+            term = term[:-2]
+        elif term.endswith("s"):
+            term = term[:-1]
+
+    return term
+
+def tokenize(text: str):
+    text = normalize_for_search(text)
+    terms = [normalize_term(t) for t in text.split()]
+    return [t for t in terms if len(t) > 1 and t not in STOPWORDS_PT]
+
+def expand_query_terms(query: str):
+    base_terms = tokenize(query)
+    expanded = set(base_terms)
+
+    for term in list(base_terms):
+        expanded.add(term)
+
+        if len(term) > 3:
+            expanded.add(term + "s")
+
+        if term.endswith("ao"):
+            expanded.add(term[:-2] + "oes")
+        if term.endswith("al"):
+            expanded.add(term[:-2] + "ais")
+        if term.endswith("el"):
+            expanded.add(term[:-2] + "eis")
+        if term.endswith("m"):
+            expanded.add(term[:-1] + "ns")
+
+        for syn in DOMAIN_SYNONYMS.get(term, []):
+            expanded.add(normalize_term(syn))
+
+    return [t for t in expanded if len(t) > 1]
 
 def make_id(name: str) -> str:
     return hashlib.md5(name.encode()).hexdigest()[:12]
@@ -321,7 +387,11 @@ def build_index():
 def retrieve(query, idx, top_k=6, faiss_k=12, bm25_k=12):
     chunks = idx['chunks']
 
-    q_vec = idx['model'].encode([query], normalize_embeddings=True).astype(np.float32)
+    query_for_dense = normalize_for_search(query)
+    query_terms_expanded = expand_query_terms(query)
+    query_for_sparse = " ".join(query_terms_expanded)
+
+    q_vec = idx['model'].encode([query_for_dense], normalize_embeddings=True).astype(np.float32)
     dense_scores, dense_ids = idx['faiss'].search(q_vec, faiss_k)
 
     dense_map = {}
@@ -329,7 +399,7 @@ def retrieve(query, idx, top_k=6, faiss_k=12, bm25_k=12):
         if cid >= 0:
             dense_map[int(cid)] = float(score)
 
-    bm25_scores = idx['bm25'].get_scores(tokenize(query))
+    bm25_scores = idx['bm25'].get_scores(tokenize(query_for_sparse))
     bm25_top_ids = np.argsort(bm25_scores)[::-1][:bm25_k]
 
     sparse_map = {}
@@ -359,7 +429,7 @@ def retrieve(query, idx, top_k=6, faiss_k=12, bm25_k=12):
     selected = []
     seen_texts = set()
     for item in fused:
-        text_key = item['chunk'].text[:280].strip().lower()
+        text_key = normalize_for_search(item['chunk'].text[:400])
         if text_key not in seen_texts:
             selected.append(item)
             seen_texts.add(text_key)
@@ -372,13 +442,16 @@ def retrieve(query, idx, top_k=6, faiss_k=12, bm25_k=12):
 # LOCAL FALLBACK
 # ─────────────────────────────────────────────────────────────────────
 def chunk_matches_query(query: str, text: str) -> bool:
-    q_terms = [t for t in tokenize(query) if len(t) >= 3]
+    q_terms = [normalize_term(t) for t in tokenize(query) if len(t) >= 3]
     if not q_terms:
         return False
 
-    text_norm = normalize_text(text).lower()
-    hits = sum(1 for t in q_terms if t in text_norm)
-    return hits >= 1
+    text_norm = normalize_for_search(text)
+    text_terms = set(normalize_term(t) for t in text_norm.split())
+
+    hits = sum(1 for t in q_terms if t in text_terms)
+    min_hits = 1 if len(q_terms) <= 2 else 2
+    return hits >= min_hits
 
 def local_extractive_answer(query: str, results):
     fallback = "Não foram encontradas informações específicas sobre esse assunto nos documentos analisados."
@@ -563,7 +636,7 @@ def generate(query, results):
     prompt = build_grounded_prompt(query, results)
 
     try:
-        raw_answer, t_in, t_out, used_model, model_warning = call_openrouter_with_fallback(prompt)
+        raw_answer, t_in, t_out, used_model, _ = call_openrouter_with_fallback(prompt)
     except Exception as e:
         local_answer = local_extractive_answer(query, results)
         friendly_reason = friendly_model_error(str(e))
@@ -626,7 +699,7 @@ with st.sidebar:
 
     st.markdown("---")
     st.caption("Modelos de IA são selecionados automaticamente em cascata.")
-    st.caption("Se um falhar, o sistema tenta os demais antes de acionar a contingência.")
+    st.caption("O tratamento linguístico da busca normaliza acentos, plural e variações simples de escrita.")
 
     if st.button("↩ Limpar histórico"):
         st.session_state.history = []
@@ -723,8 +796,8 @@ if query and st.session_state.index:
                     'used_model': used_model
                 })
 
-            except Exception as e:
+            except Exception:
                 st.markdown(
-                    f'<div class="error-box">Erro ao processar a consulta. Tente novamente em instantes.</div>',
+                    '<div class="error-box">Erro ao processar a consulta. Tente novamente em instantes.</div>',
                     unsafe_allow_html=True
                 )
