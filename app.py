@@ -1,5 +1,5 @@
 import streamlit as st
-import re, json, hashlib, html, urllib.request, urllib.error
+import re, json, hashlib, html, urllib.request, urllib.error, socket
 import numpy as np
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -75,6 +75,10 @@ html, body, [class*="css"] { font-family: 'Source Sans 3', sans-serif; }
     background: #fff1f1; border: 1px solid #f0b4b4; color: #8f1f1f;
     padding: 14px 16px; border-radius: 12px; margin-top: 12px;
 }
+.info-box {
+    background: #eef6ff; border: 1px solid #bfd8ff; color: #284b7a;
+    padding: 14px 16px; border-radius: 12px; margin-top: 12px;
+}
 
 .stButton > button {
     background: linear-gradient(135deg, #7c5cbf 0%, #9b7dd4 100%);
@@ -88,6 +92,16 @@ div[data-testid="stSidebar"] { background: white; border-right: 1px solid #ece8f
 # API CONFIG
 # ─────────────────────────────────────────────────────────────────────
 api_key = st.secrets.get("OPENROUTER_API_KEY", "")
+
+# Modelos internos em cascata
+MODEL_CANDIDATES = [
+    "qwen/qwen3.6-plus:free",
+    "stepfun/step-3.5-flash:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "nvidia/nemotron-3-nano-30b-a3b:free",
+    "arcee-ai/trinity-large-preview:free",
+    "minimax/minimax-m2.5:free"
+]
 
 # ─────────────────────────────────────────────────────────────────────
 # DATACLASSES
@@ -138,6 +152,25 @@ def make_id(name: str) -> str:
 
 def escape_html(text: str) -> str:
     return html.escape(text)
+
+def friendly_model_error(raw_error: str) -> str:
+    txt = (raw_error or "").lower()
+
+    if "429" in txt or "rate-limit" in txt or "rate limited" in txt or "temporarily rate-limited" in txt:
+        return "Os modelos automáticos estavam temporariamente sobrecarregados no provedor de IA."
+    if "401" in txt or "unauthorized" in txt or "invalid api key" in txt or "authentication" in txt:
+        return "Houve um problema de autenticação com o serviço de IA."
+    if "403" in txt or "forbidden" in txt:
+        return "O acesso ao serviço de IA foi recusado pelo provedor."
+    if "timeout" in txt or "timed out" in txt:
+        return "O serviço de IA demorou demais para responder."
+    if "connection reset" in txt or "temporary failure" in txt or "name resolution" in txt:
+        return "Houve uma falha temporária de conexão com o serviço de IA."
+    if "provider returned error" in txt:
+        return "O provedor de IA retornou uma falha temporária durante a geração."
+    if "empty response" in txt:
+        return "O serviço de IA não retornou conteúdo utilizável."
+    return "Não foi possível gerar a resposta com os modelos automáticos disponíveis neste momento."
 
 # ─────────────────────────────────────────────────────────────────────
 # EXTRACTION
@@ -440,9 +473,9 @@ PERGUNTA:
 
     return prompt
 
-def call_openrouter(prompt, model_id):
+def _request_openrouter(prompt, model_name):
     data = json.dumps({
-        "model": model_id,
+        "model": model_name,
         "messages": [
             {"role": "user", "content": prompt}
         ],
@@ -463,16 +496,40 @@ def call_openrouter(prompt, model_id):
         headers=headers
     )
 
-    try:
-        with urllib.request.urlopen(req, timeout=60) as response:
-            res = json.loads(response.read())
-            ans = res['choices'][0]['message']['content']
-            return ans, len(prompt.split()), len(ans.split())
-    except urllib.error.HTTPError as e:
-        detail = e.read().decode("utf-8", errors="replace")
-        raise Exception(f"HTTPError {e.code}: {detail}")
-    except Exception as e:
-        raise Exception(str(e))
+    with urllib.request.urlopen(req, timeout=60) as response:
+        res = json.loads(response.read())
+        ans = res["choices"][0]["message"]["content"]
+        if not ans or not ans.strip():
+            raise Exception("empty response")
+        return ans, len(prompt.split()), len(ans.split())
+
+def call_openrouter_with_fallback(prompt):
+    tried = []
+    last_error = None
+
+    for model_name in MODEL_CANDIDATES:
+        if model_name in tried:
+            continue
+        tried.append(model_name)
+
+        try:
+            ans, t_in, t_out = _request_openrouter(prompt, model_name)
+            return ans, t_in, t_out, model_name, ""
+        except urllib.error.HTTPError as e:
+            try:
+                detail = e.read().decode("utf-8", errors="replace")
+            except Exception:
+                detail = str(e)
+            last_error = detail or str(e)
+            continue
+        except socket.timeout as e:
+            last_error = str(e)
+            continue
+        except Exception as e:
+            last_error = str(e)
+            continue
+
+    raise Exception(last_error or "all models failed")
 
 def validate_answer(answer: str):
     answer = (answer or "").strip()
@@ -497,27 +554,28 @@ def validate_answer(answer: str):
 
     return answer, True, ""
 
-def generate(query, results, model_id):
+def generate(query, results):
     real_fallback = "Não foram encontradas informações específicas sobre esse assunto nos documentos analisados."
 
     if not results:
-        return real_fallback, 0, len(real_fallback.split()), False, "Nenhum trecho recuperado."
+        return real_fallback, 0, len(real_fallback.split()), False, "Nenhum trecho recuperado.", "fallback_local"
 
     prompt = build_grounded_prompt(query, results)
 
     try:
-        raw_answer, t_in, t_out = call_openrouter(prompt, model_id)
+        raw_answer, t_in, t_out, used_model, model_warning = call_openrouter_with_fallback(prompt)
     except Exception as e:
         local_answer = local_extractive_answer(query, results)
-        return local_answer, len(prompt.split()), len(local_answer.split()), False, f"Falha no modelo: {str(e)}"
+        friendly_reason = friendly_model_error(str(e))
+        return local_answer, len(prompt.split()), len(local_answer.split()), False, friendly_reason, "fallback_local"
 
     validated_answer, ok, reason = validate_answer(raw_answer)
 
     if ok:
-        return validated_answer, t_in, t_out, True, ""
+        return validated_answer, t_in, t_out, True, "", used_model
 
     local_answer = local_extractive_answer(query, results)
-    return local_answer, t_in, len(local_answer.split()), False, f"Saída original rejeitada: {reason}"
+    return local_answer, t_in, len(local_answer.split()), False, "A resposta automática não veio em formato documental válido, então foi usada uma resposta de contingência baseada nos trechos recuperados.", used_model
 
 # ─────────────────────────────────────────────────────────────────────
 # UI HELPERS
@@ -563,21 +621,12 @@ def render_sources(results):
 # ─────────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### ⚙️ Configurações")
-
-    model_id = st.selectbox("Modelo (gratuito)", [
-        "qwen/qwen3.6-plus:free",
-        "stepfun/step-3.5-flash:free",
-        "nvidia/nemotron-3-super-120b-a12b:free",
-        "nvidia/nemotron-3-nano-30b-a3b:free",
-        "arcee-ai/trinity-large-preview:free",
-        "minimax/minimax-m2.5:free"
-    ])
-
     top_k = st.slider("Número de fontes recuperadas", 2, 10, 6)
     show_sources = st.checkbox("Mostrar trechos-fonte", value=True)
 
     st.markdown("---")
-    st.caption("Modo documental restritivo: a resposta deve se limitar aos trechos recuperados.")
+    st.caption("Modelos de IA são selecionados automaticamente em cascata.")
+    st.caption("Se um falhar, o sistema tenta os demais antes de acionar a contingência.")
 
     if st.button("↩ Limpar histórico"):
         st.session_state.history = []
@@ -612,6 +661,7 @@ for h in st.session_state.history:
             <div class="answer-card">
                 <div class="answer-meta">
                     <span class="meta-pill {h['conf_class']}">Consistência do resgate: {h['conf_label']}</span>
+                    <span class="meta-pill">Modelo usado: {escape_html(h.get('used_model', 'N/A'))}</span>
                     <span class="meta-pill">📥 {h['t_in']} | 📤 {h['t_out']} tokens</span>
                 </div>
                 <div class="answer-text">{escape_html(h["answer"])}</div>
@@ -634,7 +684,7 @@ if query and st.session_state.index:
         with st.spinner("Analisando documentos..."):
             try:
                 res = retrieve(query, st.session_state.index, top_k=top_k)
-                ans, t_in, t_out, ok, reason = generate(query, res, model_id)
+                ans, t_in, t_out, ok, reason, used_model = generate(query, res)
                 conf_label, conf_class = confidence_label(res)
 
                 st.markdown(
@@ -642,6 +692,7 @@ if query and st.session_state.index:
                     <div class="answer-card">
                         <div class="answer-meta">
                             <span class="meta-pill {conf_class}">Consistência do resgate: {conf_label}</span>
+                            <span class="meta-pill">Modelo usado: {escape_html(used_model)}</span>
                             <span class="meta-pill">📥 {t_in} | 📤 {t_out} tokens</span>
                         </div>
                         <div class="answer-text">{escape_html(ans)}</div>
@@ -651,8 +702,8 @@ if query and st.session_state.index:
                 )
 
                 warn_msg = ""
-                if not ok:
-                    warn_msg = f"Saída original do modelo não foi usada integralmente. Motivo: {reason}"
+                if not ok and reason:
+                    warn_msg = f"A resposta foi gerada com mecanismo de contingência. Motivo: {reason}"
 
                 if warn_msg:
                     st.markdown(f'<div class="warning-box">{escape_html(warn_msg)}</div>', unsafe_allow_html=True)
@@ -668,11 +719,12 @@ if query and st.session_state.index:
                     't_in': t_in,
                     't_out': t_out,
                     'warn_msg': warn_msg,
-                    'sources': res
+                    'sources': res,
+                    'used_model': used_model
                 })
 
             except Exception as e:
                 st.markdown(
-                    f'<div class="error-box">Erro: {escape_html(str(e))}</div>',
+                    f'<div class="error-box">Erro ao processar a consulta. Tente novamente em instantes.</div>',
                     unsafe_allow_html=True
                 )
