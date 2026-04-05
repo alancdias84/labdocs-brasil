@@ -104,7 +104,7 @@ hr { border-color: #ece8f5; margin: 1rem 0; }
 """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────
-# API KEY — lida dos Secrets do Streamlit (sem expor ao usuário)
+# API KEY
 # ─────────────────────────────────────────────────────────────────────
 api_key = st.secrets.get("OPENROUTER_API_KEY", "")
 
@@ -232,7 +232,7 @@ def chunk_plain(text, doc_id, filename, chunk_words=200, overlap=40):
     return chunks
 
 # ─────────────────────────────────────────────────────────────────────
-# INDEX BUILDER — lê documentos da pasta documents/ no repositório
+# INDEX BUILDER
 # ─────────────────────────────────────────────────────────────────────
 @st.cache_resource(show_spinner=False)
 def build_index_from_folder():
@@ -241,14 +241,15 @@ def build_index_from_folder():
     import faiss
 
     docs_path = Path("documents")
+    if not docs_path.exists(): docs_path.mkdir()
+    
     SUPPORTED = {'.pdf', '.rmd', '.md', '.txt'}
     file_contents = []
     for f in sorted(docs_path.glob("*")):
         if f.suffix.lower() in SUPPORTED:
             file_contents.append((f.name, f.read_bytes()))
 
-    if not file_contents:
-        return None
+    if not file_contents: return None
 
     all_meta, all_chunks = [], []
     for fname, data in file_contents:
@@ -273,7 +274,6 @@ def build_index_from_folder():
 
     tok_corpus = [tokenize(c.text) for c in all_chunks]
     bm25 = BM25Okapi(tok_corpus)
-
     model = SentenceTransformer('paraphrase-multilingual-mpnet-base-v2')
     embeddings = model.encode(
         [c.text for c in all_chunks], batch_size=32,
@@ -285,13 +285,9 @@ def build_index_from_folder():
     faiss_idx.add(embeddings)
 
     return {
-        'chunks':     all_chunks,
-        'meta':       {m.doc_id: m for m in all_meta},
-        'bm25':       bm25,
-        'faiss':      faiss_idx,
-        'embeddings': embeddings,
-        'model':      model,
-        'filenames':  [f for f, _ in file_contents],
+        'chunks': all_chunks, 'meta': {m.doc_id: m for m in all_meta},
+        'bm25': bm25, 'faiss': faiss_idx, 'embeddings': embeddings,
+        'model': model, 'filenames': [f for f, _ in file_contents],
     }
 
 # ─────────────────────────────────────────────────────────────────────
@@ -363,26 +359,18 @@ def detect_conflicts(results, embeddings):
 def generate(query, results, meta_map, model_id):
     parts = []
     for i, r in enumerate(results, 1):
-        c = r['chunk']
-        m = meta_map.get(c.doc_id)
+        c = r['chunk']; m = meta_map.get(c.doc_id)
         snip = best_snippet(c.text, query)
         page_ref = f" | p. {c.page}" if c.page > 0 else ''
         v = m.version if m else 'N/A'; d = m.date if m else 'N/A'
         parts.append(f"[{i}] {c.filename} | v{v} | {d}{page_ref} | {c.section[:50]}\n{snip}")
     ctx = '\n---\n'.join(parts)
     prompt = (
-        "Assistente de medicina laboratorial. Responda em português com base nos trechos abaixo.\n\n"
-        "INSTRUÇÕES:\n"
-        "1. Se o termo exato estiver nos trechos, responda diretamente e cite a fonte como [n].\n"
-        "2. Se o termo exato NÃO estiver, busque nos trechos conceitos relacionados que possam "
-        "contextualizar a pergunta e apresente-os como informação de contexto, citando a fonte como [n].\n"
-        "3. Apenas diga 'não encontrado' se absolutamente nenhuma informação relacionada existir nos trechos.\n\n"
+        "Assistente de medicina laboratorial. Responda em português com base nos trechos abaixo.\n"
+        "1. Cite a fonte como [n]. 2. Se não encontrar, contextualize o que houver.\n\n"
         f"TRECHOS:\n{ctx}\n\nPERGUNTA: {query}"
     )
-    body = json.dumps({
-        "model": model_id,
-        "messages": [{"role": "user", "content": prompt}]
-    }).encode()
+    body = json.dumps({"model": model_id, "messages": [{"role": "user", "content": prompt}]}).encode()
     req = urllib.request.Request(
         "https://openrouter.ai/api/v1/chat/completions", data=body,
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
@@ -392,13 +380,13 @@ def generate(query, results, meta_map, model_id):
     return text, len(prompt.split()), len(text.split())
 
 # ─────────────────────────────────────────────────────────────────────
-# INICIALIZAÇÃO — indexa documentos automaticamente ao carregar
+# INITIALIZATION
 # ─────────────────────────────────────────────────────────────────────
 if 'index'   not in st.session_state: st.session_state.index   = None
 if 'history' not in st.session_state: st.session_state.history = []
 
 if st.session_state.index is None:
-    with st.spinner("Carregando e indexando documentos... (pode levar 1-2 min na primeira vez)"):
+    with st.spinner("Indexando documentos da pasta `documents/`..."):
         st.session_state.index = build_index_from_folder()
 
 # ─────────────────────────────────────────────────────────────────────
@@ -408,31 +396,30 @@ with st.sidebar:
     st.markdown("### ⚙️ Configurações")
     top_k = st.slider("Top-K fontes", 2, 8, 4)
     model_id = st.selectbox("Modelo (gratuito)", [
-        "deepseek/deepseek-chat-v3.1:free",
-        "meta-llama/llama-4-maverick:free",
-        "qwen/qwen3.6-plus:free",
+        "google/gemini-2.0-flash-exp:free",
         "deepseek/deepseek-r1:free",
+        "deepseek/deepseek-v3:free",
+        "meta-llama/llama-3.3-70b-instruct:free",
+        "qwen/qwen-2.5-72b-instruct:free",
         "meta-llama/llama-3.1-8b-instruct:free",
+        "mistralai/mistral-7b-instruct:free",
+        "microsoft/phi-3-medium-128k-instruct:free",
     ])
 
     if st.session_state.index:
-        st.markdown("---")
         idx = st.session_state.index
         docs = sorted(set(c.filename for c in idx['chunks']))
         doc_filter = st.selectbox("Filtrar por documento", ['Todos'] + docs)
-        st.caption(f"{len(idx['chunks'])} chunks · {len(docs)} documento(s)")
         st.markdown("---")
         st.markdown("**Documentos indexados:**")
-        for fname in idx.get('filenames', docs):
-            st.caption(f"📄 {fname}")
+        for fname in idx.get('filenames', docs): st.caption(f"📄 {fname}")
         if st.button("↩ Limpar histórico"):
             st.session_state.history = []
             st.rerun()
-    else:
-        doc_filter = 'Todos'
+    else: doc_filter = 'Todos'
 
 # ─────────────────────────────────────────────────────────────────────
-# MAIN AREA
+# MAIN
 # ─────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="lab-header">
@@ -442,73 +429,48 @@ st.markdown("""
         <span class="badge">BM25 + Semântico</span>
         <span class="badge">Rastreabilidade ISO 15189</span>
         <span class="badge">Detecção de Conflitos</span>
-        <span class="badge">PDF · RMD · MD · TXT</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
 if not st.session_state.index:
-    st.error("⚠️ Nenhum documento encontrado na pasta `documents/`. Adicione arquivos PDF, MD ou TXT ao repositório.")
+    st.error("⚠️ Adicione arquivos PDF/MD à pasta `documents/`.")
     st.stop()
 
 idx = st.session_state.index
 
-# Chat history
+# Histórico
 for h in st.session_state.history:
-    with st.chat_message("user"):
-        st.write(h['q'])
+    with st.chat_message("user"): st.write(h['q'])
     with st.chat_message("assistant", avatar="🧪"):
-        conf_class = {'Alta':'conf-alta','Média':'conf-media','Baixa':'conf-baixa'}[h['conf_label']]
+        c_cls = {'Alta':'conf-alta','Média':'conf-media','Baixa':'conf-baixa'}[h['conf_label']]
         st.markdown(f"""
         <div class="answer-card">
             <div class="answer-meta">
-                <span class="meta-pill {conf_class}">Consistência do resgate: {conf_label} ({conf:.0%})</span>
-                <span class="meta-pill">📥 {h['tok_in']} tokens</span>
-                <span class="meta-pill">📤 {h['tok_out']} tokens</span>
-                <span class="meta-pill">gratuito</span>
+                <span class="meta-pill {c_cls}">Consistência: {h['conf_label']} ({h['conf']:.0%})</span>
+                <span class="meta-pill">📥 {h['tok_in']} | 📤 {h['tok_out']}</span>
             </div>
             <div class="answer-text">{h['answer']}</div>
-        </div>
-        """, unsafe_allow_html=True)
-        with st.expander(f"📄 {len(h['results'])} fonte(s)"):
-            for i, r in enumerate(h['results'], 1):
-                c = r['chunk']
-                m = idx['meta'].get(c.doc_id)
-                v = m.version if m else 'N/A'; d = m.date if m else 'N/A'
-                page_str = f"p. {c.page} · " if c.page > 0 else ''
-                snip = best_snippet(c.text, h['q'], 150)
-                st.markdown(f"""
-                <div class="src-card">
-                    <div class="src-title">[{i}] {c.filename}</div>
-                    <div class="src-meta">v{v} · {d} · {page_str}{c.section[:55]} · {int(r['rel']*100)}% relevância</div>
-                    <div class="src-snip">{snip}…</div>
-                </div>""", unsafe_allow_html=True)
-        if h['conflicts']:
-            with st.expander(f"⚠️ {len(h['conflicts'])} conflito(s) detectado(s)"):
-                for conf in h['conflicts']:
-                    cls = 'conflict-alta' if conf['sev']=='Alta' else 'conflict-media'
-                    st.markdown(f'<div class="src-card {cls}"><b>{conf["sev"]}</b> · {conf["desc"]}</div>',
-                                unsafe_allow_html=True)
-        else:
-            st.success("✓ Nenhum conflito detectado")
+        </div>""", unsafe_allow_html=True)
 
-# Chat input
-query = st.chat_input("Faça uma pergunta sobre os documentos...")
+# Novo Input
+query = st.chat_input("Faça uma pergunta...")
 if query:
-    with st.chat_message("user"):
-        st.write(query)
+    with st.chat_message("user"): st.write(query)
     with st.chat_message("assistant", avatar="🧪"):
-        with st.spinner("Buscando fontes e gerando resposta..."):
+        with st.spinner("Gerando resposta..."):
             try:
-                results = retrieve(query, idx, top_k=top_k,
-                                   doc_filter=doc_filter if doc_filter != 'Todos' else None)
-                if not results:
-                    st.warning("Nenhuma fonte relevante encontrada. Tente reformular.")
+                res = retrieve(query, idx, top_k=top_k, doc_filter=doc_filter if doc_filter != 'Todos' else None)
+                if not res:
+                    st.warning("Sem resultados.")
                     st.stop()
-                conflicts = detect_conflicts(results, idx['embeddings'])
-                answer, tok_in, tok_out = generate(query, results, idx['meta'], model_id)
-                avg_rel = sum(r['rel'] for r in results) / len(results)
-                n_docs  = len(set(r['chunk'].doc_id for r in results))
+                
+                conflicts = detect_conflicts(res, idx['embeddings'])
+                ans, t_in, t_out = generate(query, res, idx['meta'], model_id)
+                
+                # Lógica de Confiança
+                avg_rel = sum(r['rel'] for r in res) / len(res)
+                n_docs  = len(set(r['chunk'].doc_id for r in res))
                 conf = min(1.0, avg_rel*0.6 + n_docs/3*0.3 - len([c for c in conflicts if c['sev']=='Alta'])*0.15)
                 conf_label = 'Alta' if conf >= 0.65 else 'Média' if conf >= 0.35 else 'Baixa'
                 conf_class = {'Alta':'conf-alta','Média':'conf-media','Baixa':'conf-baixa'}[conf_label]
@@ -516,55 +478,17 @@ if query:
                 st.markdown(f"""
                 <div class="answer-card">
                     <div class="answer-meta">
-                        <span class="meta-pill {conf_class}">Consistência do resgate: {h['conf_label']} ({h['conf']:.0%})</span>
-                        <span class="meta-pill">📥 {tok_in} tokens</span>
-                        <span class="meta-pill">📤 {tok_out} tokens</span>
+                        <span class="meta-pill {conf_class}">Consistência: {conf_label} ({conf:.0%})</span>
+                        <span class="meta-pill">📥 {t_in} tokens | 📤 {t_out} tokens</span>
                         <span class="meta-pill">gratuito</span>
                     </div>
-                    <div class="answer-text">{answer}</div>
+                    <div class="answer-text">{ans}</div>
                 </div>""", unsafe_allow_html=True)
 
-                with st.expander(f"📄 {len(results)} fonte(s) recuperada(s)"):
-                    for i, r in enumerate(results, 1):
-                        c = r['chunk']; m = idx['meta'].get(c.doc_id)
-                        v = m.version if m else 'N/A'; d = m.date if m else 'N/A'
-                        page_str = f"p. {c.page} · " if c.page > 0 else ''
-                        snip = best_snippet(c.text, query, 150)
-                        st.markdown(f"""
-                        <div class="src-card">
-                            <div class="src-title">[{i}] {c.filename}</div>
-                            <div class="src-meta">v{v} · {d} · {page_str}{c.section[:55]} · {int(r['rel']*100)}% relevância</div>
-                            <div class="src-snip">{snip}…</div>
-                        </div>""", unsafe_allow_html=True)
-
-                if conflicts:
-                    with st.expander(f"⚠️ {len(conflicts)} conflito(s) detectado(s)"):
-                        for conf_item in conflicts:
-                            cls = 'conflict-alta' if conf_item['sev']=='Alta' else 'conflict-media'
-                            st.markdown(f'<div class="src-card {cls}"><b>{conf_item["sev"]}</b> · {conf_item["desc"]}</div>',
-                                        unsafe_allow_html=True)
-                else:
-                    st.success("✓ Nenhum conflito detectado")
-
                 st.session_state.history.append({
-                    'q': query, 'answer': answer, 'results': results,
+                    'q': query, 'answer': ans, 'results': res,
                     'conflicts': conflicts, 'conf': conf, 'conf_label': conf_label,
-                    'tok_in': tok_in, 'tok_out': tok_out
+                    'tok_in': t_in, 'tok_out': t_out
                 })
             except Exception as e:
-                err = str(e)
-                if '429' in err:
-                    st.warning(
-                        "⚠️ **Limite de requisições atingido** para este modelo.\n\n"
-                        "O modelo gratuito atingiu o limite de uso da OpenRouter. "
-                        "**Troque o modelo na barra lateral** (ex: `meta-llama/llama-3.1-8b-instruct:free`) "
-                        "e tente novamente. Os limites são resetados automaticamente após alguns minutos."
-                    )
-                elif '404' in err:
-                    st.warning(
-                        "⚠️ **Modelo não encontrado.**\n\n"
-                        "O modelo selecionado não está disponível na OpenRouter no momento. "
-                        "**Troque o modelo na barra lateral** e tente novamente."
-                    )
-                else:
-                    st.error(f"Erro inesperado: {e}")
+                st.error(f"Erro: {e}")
