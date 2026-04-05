@@ -516,7 +516,7 @@ if query:
                 st.markdown(f"""
                 <div class="answer-card">
                     <div class="answer-meta">
-                        <span class="meta-pill {conf_class}">Confiança: {conf_label} ({conf:.0%})</span>
+                        <span class="meta-pill {conf_class}">Consistência do resgate: {h['conf_label']} ({h['conf']:.0%})</span>
                         <span class="meta-pill">📥 {tok_in} tokens</span>
                         <span class="meta-pill">📤 {tok_out} tokens</span>
                         <span class="meta-pill">gratuito</span>
