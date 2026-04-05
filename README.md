@@ -1,4 +1,4 @@
-# 🧪 LabDocs Brasil
+# 🧪 Laboratory Intelligence for Normative Assistance (LINA) Chat
 
 **Desafio SBPC/ML 2026–2027** · RAG + LLM para Medicina Laboratorial
 
