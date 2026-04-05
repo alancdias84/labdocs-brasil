@@ -824,7 +824,7 @@ for h in st.session_state.history:
                 <div class="answer-meta">
                     <span class="meta-pill {h['conf_class']}">Consistência do resgate: {h['conf_label']}</span>
                     <span class="meta-pill">Modelo usado: {escape_html(h.get('used_model', 'N/A'))}</span>
-                    <span class="meta-pill">📥 {h['t_in']} | 📤 {h['t_out']} tokens</span>
+                    <span class="meta-pill">📥 {h['t_in']} tokens in| 📤 {h['t_out']} tokens out</span>
                 </div>
                 <div class="answer-text">{formatted_answer}</div>
             </div>
