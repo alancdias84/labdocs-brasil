@@ -102,7 +102,15 @@ MODEL_CANDIDATES = [
     "minimax/minimax-m2.5:free"
 ]
 
-# Opcional: equivalências simples do domínio
+# Controle interno de recuperação
+RETRIEVE_FAISS_K = 16
+RETRIEVE_BM25_K = 16
+MIN_FINAL_CHUNKS = 3
+MAX_FINAL_CHUNKS = 6
+HYBRID_SCORE_MIN = 0.28
+HIGH_CONFIDENCE_THRESHOLD = 0.72
+MEDIUM_CONFIDENCE_THRESHOLD = 0.48
+
 DOMAIN_SYNONYMS = {
     "resultado": ["valor", "laudo"],
     "critico": ["critico", "criticos", "critic", "urgente"],
@@ -212,6 +220,21 @@ def expand_query_terms(query: str):
             expanded.add(normalize_term(syn))
 
     return [t for t in expanded if len(t) > 1]
+
+def estimate_final_chunk_budget(query: str) -> int:
+    q_tokens = tokenize(query)
+    q_len = len(q_tokens)
+
+    has_disjunction = any(x in normalize_for_search(query).split() for x in ["ou", "and", "or"])
+    has_question_complexity = any(sym in query for sym in [":", ";", ","]) or len(query) > 80
+
+    if q_len <= 2 and not has_question_complexity:
+        return 3
+    if q_len <= 5 and not has_disjunction:
+        return 4
+    if q_len <= 9:
+        return 5
+    return 6
 
 def make_id(name: str) -> str:
     return hashlib.md5(name.encode()).hexdigest()[:12]
@@ -384,7 +407,7 @@ def build_index():
 # ─────────────────────────────────────────────────────────────────────
 # HYBRID RETRIEVAL
 # ─────────────────────────────────────────────────────────────────────
-def retrieve(query, idx, top_k=6, faiss_k=12, bm25_k=12):
+def retrieve(query, idx):
     chunks = idx['chunks']
 
     query_for_dense = normalize_for_search(query)
@@ -392,7 +415,7 @@ def retrieve(query, idx, top_k=6, faiss_k=12, bm25_k=12):
     query_for_sparse = " ".join(query_terms_expanded)
 
     q_vec = idx['model'].encode([query_for_dense], normalize_embeddings=True).astype(np.float32)
-    dense_scores, dense_ids = idx['faiss'].search(q_vec, faiss_k)
+    dense_scores, dense_ids = idx['faiss'].search(q_vec, RETRIEVE_FAISS_K)
 
     dense_map = {}
     for score, cid in zip(dense_scores[0], dense_ids[0]):
@@ -400,7 +423,7 @@ def retrieve(query, idx, top_k=6, faiss_k=12, bm25_k=12):
             dense_map[int(cid)] = float(score)
 
     bm25_scores = idx['bm25'].get_scores(tokenize(query_for_sparse))
-    bm25_top_ids = np.argsort(bm25_scores)[::-1][:bm25_k]
+    bm25_top_ids = np.argsort(bm25_scores)[::-1][:RETRIEVE_BM25_K]
 
     sparse_map = {}
     sparse_values = [float(bm25_scores[i]) for i in bm25_top_ids]
@@ -426,17 +449,24 @@ def retrieve(query, idx, top_k=6, faiss_k=12, bm25_k=12):
 
     fused.sort(key=lambda x: x['hybrid'], reverse=True)
 
-    selected = []
+    deduped = []
     seen_texts = set()
     for item in fused:
         text_key = normalize_for_search(item['chunk'].text[:400])
         if text_key not in seen_texts:
-            selected.append(item)
+            deduped.append(item)
             seen_texts.add(text_key)
-        if len(selected) >= top_k:
-            break
 
-    return selected
+    score_filtered = [x for x in deduped if x['hybrid'] >= HYBRID_SCORE_MIN]
+
+    target_k = estimate_final_chunk_budget(query)
+
+    if len(score_filtered) >= MIN_FINAL_CHUNKS:
+        final_results = score_filtered[:min(target_k, MAX_FINAL_CHUNKS)]
+    else:
+        final_results = deduped[:min(max(target_k, MIN_FINAL_CHUNKS), MAX_FINAL_CHUNKS)]
+
+    return final_results
 
 # ─────────────────────────────────────────────────────────────────────
 # LOCAL FALLBACK
@@ -659,9 +689,9 @@ def confidence_label(results):
 
     avg_rel = sum(r['hybrid'] for r in results) / len(results)
 
-    if avg_rel >= 0.70:
+    if avg_rel >= HIGH_CONFIDENCE_THRESHOLD:
         return "Alta", "conf-alta"
-    elif avg_rel >= 0.45:
+    elif avg_rel >= MEDIUM_CONFIDENCE_THRESHOLD:
         return "Média", "conf-media"
     else:
         return "Baixa", "conf-baixa"
@@ -694,11 +724,11 @@ def render_sources(results):
 # ─────────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### ⚙️ Configurações")
-    top_k = st.slider("Número de fontes recuperadas", 2, 10, 6)
     show_sources = st.checkbox("Mostrar trechos-fonte", value=True)
 
     st.markdown("---")
     st.caption("Modelos de IA são selecionados automaticamente em cascata.")
+    st.caption("O número de fontes é definido automaticamente pelo pipeline de recuperação.")
     st.caption("O tratamento linguístico da busca normaliza acentos, plural e variações simples de escrita.")
 
     if st.button("↩ Limpar histórico"):
@@ -756,7 +786,7 @@ if query and st.session_state.index:
     with st.chat_message("assistant", avatar="🧪"):
         with st.spinner("Analisando documentos..."):
             try:
-                res = retrieve(query, st.session_state.index, top_k=top_k)
+                res = retrieve(query, st.session_state.index)
                 ans, t_in, t_out, ok, reason, used_model = generate(query, res)
                 conf_label, conf_class = confidence_label(res)
 
