@@ -274,7 +274,7 @@ def build_index_from_folder():
 
     tok_corpus = [tokenize(c.text) for c in all_chunks]
     bm25 = BM25Okapi(tok_corpus)
-    model = SentenceTransformer('paraphrase-multilingual-mpnet-base-v2')
+    model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
     embeddings = model.encode(
         [c.text for c in all_chunks], batch_size=32,
         show_progress_bar=False, normalize_embeddings=True
