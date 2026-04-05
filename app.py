@@ -46,15 +46,8 @@ html, body, [class*="css"] { font-family: 'Source Sans 3', sans-serif; }
     padding: 3px 12px; font-size: 11px; font-weight: 500; border: 1px solid #ddd5f5;
 }
 
-.card {
-    background: white; border-radius: 14px; padding: 22px 26px;
-    margin-bottom: 16px; border: 1px solid #ece8f5;
-    box-shadow: 0 1px 12px rgba(160,140,210,0.08);
-}
-
 .answer-card {
-    background: linear-gradient(135deg, #fdf8ff 0%, #f5f0ff 100%);
-    border-radius: 14px; padding: 24px 28px; margin-bottom: 16px;
+    background: white; border-radius: 14px; padding: 24px 28px; margin-bottom: 16px;
     border: 1px solid #ddd0f5; box-shadow: 0 2px 16px rgba(150,120,210,0.10);
 }
 .answer-meta { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
@@ -70,7 +63,6 @@ html, body, [class*="css"] { font-family: 'Source Sans 3', sans-serif; }
 .src-card {
     background: white; border-radius: 10px; padding: 14px 18px; margin-bottom: 8px;
     border: 1px solid #ece8f5; border-left: 4px solid #b39ddb;
-    box-shadow: 0 1px 6px rgba(150,120,200,0.06);
 }
 .src-title { font-weight: 600; font-size: 13px; color: #4a3880; margin-bottom: 4px; }
 .src-meta { font-size: 11px; color: #9e8fc0; font-family: monospace; margin-bottom: 6px; }
@@ -81,35 +73,19 @@ html, body, [class*="css"] { font-family: 'Source Sans 3', sans-serif; }
 
 .stButton > button {
     background: linear-gradient(135deg, #7c5cbf 0%, #9b7dd4 100%);
-    color: white; border: none; border-radius: 10px;
-    font-family: 'Source Sans 3', sans-serif; font-weight: 600;
-    font-size: 14px; padding: 10px 28px; transition: opacity 0.2s; width: 100%;
+    color: white; border-radius: 10px; font-weight: 600;
 }
-.stButton > button:hover { opacity: 0.88; }
-.stButton > button:disabled { opacity: 0.45; }
-.stTextInput > div > input { border-radius: 10px; border-color: #ddd5f5; font-family: 'Source Sans 3', sans-serif; }
-.stTextInput > div > input:focus { border-color: #9b7dd4; box-shadow: 0 0 0 2px rgba(155,125,212,0.15); }
 div[data-testid="stSidebar"] { background: white; border-right: 1px solid #ece8f5; }
-.stSlider > div > div > div { background: #9b7dd4; }
-.stSelectbox > div > div { border-radius: 10px; border-color: #ddd5f5; cursor: pointer; }
-.stSelectbox > div > div > div { cursor: pointer; }
-.stSelectbox span { cursor: pointer; }
-[data-baseweb="select"] * { cursor: pointer !important; }
-.stSuccess { background: #f0fff4; border-radius: 10px; }
-.stWarning { background: #fffbf0; border-radius: 10px; }
-.stError   { background: #fff5f5; border-radius: 10px; }
-hr { border-color: #ece8f5; margin: 1rem 0; }
-.stChatInput > div { border-radius: 14px; border-color: #ddd5f5; }
 </style>
 """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────
-# API KEY
+# API CONFIG
 # ─────────────────────────────────────────────────────────────────────
 api_key = st.secrets.get("OPENROUTER_API_KEY", "")
 
 # ─────────────────────────────────────────────────────────────────────
-# DATACLASSES
+# DATACLASSES & NLP
 # ─────────────────────────────────────────────────────────────────────
 @dataclass
 class DocMeta:
@@ -123,35 +99,16 @@ class Chunk:
     chunk_id: str; doc_id: str; filename: str
     section: str; text: str; page: int; position: int
 
-# ─────────────────────────────────────────────────────────────────────
-# NLP
-# ─────────────────────────────────────────────────────────────────────
-STOPWORDS_PT = set([
-    'a','ao','aos','as','até','com','como','da','das','de','dela','dele',
-    'do','dos','e','ela','ele','em','entre','era','essa','esse','esta','este',
-    'eu','foi','há','isso','isto','já','mais','mas','me','muito','na','nas',
-    'nem','no','nos','num','o','os','ou','para','pela','pelo','por','qual',
-    'quando','que','quem','se','seu','seus','si','sobre','sua','suas','também',
-    'tem','tudo','um','uma','uns','você','é','à','ser','são','está','pode',
-    'não','sendo','assim','cada','onde','pois','todo','toda','todos','todas',
-])
+STOPWORDS_PT = set(['a','ao','aos','as','até','com','como','da','das','de','do','dos','e','ela','ele','em','na','nas','no','nos','ou','para','por','que','se','um','uma','é','à'])
 
 def tokenize(text):
     text = re.sub(r'[^\w\s]', ' ', text.lower())
     return [t for t in text.split() if len(t) > 1 and t not in STOPWORDS_PT]
 
-def get_version(t):
-    m = re.search(r'[Vv]ers[ãa]o\s*[:\-]?\s*([\d\.]+)|\bRev\.?\s*([\d\.]+)', t[:2000])
-    return (m.group(1) or m.group(2)) if m else 'N/A'
-
-def get_date(t):
-    m = re.search(r'(\d{2}[\/\-]\d{2}[\/\-]\d{4})|(\d{4}[\/\-]\d{2}[\/\-]\d{2})', t[:2000])
-    return m.group(0) if m else 'N/A'
-
 def make_id(name): return hashlib.md5(name.encode()).hexdigest()[:12]
 
 # ─────────────────────────────────────────────────────────────────────
-# TEXT EXTRACTION
+# EXTRACTION & INDEXING
 # ─────────────────────────────────────────────────────────────────────
 def extract_pdf(data: bytes):
     try:
@@ -161,81 +118,14 @@ def extract_pdf(data: bytes):
             for i, page in enumerate(pdf.pages):
                 t = page.extract_text()
                 if t: pages.append((i + 1, t))
-        if pages: return pages, len(pages)
-    except: pass
-    from pypdf import PdfReader
-    reader = PdfReader(BytesIO(data))
-    pages = [(i+1, p.extract_text() or '') for i, p in enumerate(reader.pages) if p.extract_text()]
-    return pages, len(reader.pages)
+        return pages, len(pages)
+    except:
+        from pypdf import PdfReader
+        reader = PdfReader(BytesIO(data))
+        return [(i+1, p.extract_text() or '') for i, p in enumerate(reader.pages)], len(reader.pages)
 
-def extract_text(data: bytes):
-    text = data.decode('utf-8', errors='replace')
-    text = re.sub(r'^---[\s\S]+?---\n', '', text)
-    text = re.sub(r'```[\s\S]*?```', ' ', text)
-    text = re.sub(r'`[^`]+`', ' ', text)
-    text = re.sub(r'^#{1,6}\s+', '', text, flags=re.M)
-    text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
-    return text
-
-# ─────────────────────────────────────────────────────────────────────
-# CHUNKER
-# ─────────────────────────────────────────────────────────────────────
-SECTION_RE = re.compile(
-    r'^(#{1,4}\s+.{3,80}|(?:capítulo|seção|item)\s+[\d\.]+.{0,60}|\d+[\.]\s+[A-ZÁÉÍÓÚ].{5,60})',
-    re.I | re.M
-)
-
-def chunk_pdf(pages_text, doc_id, filename, chunk_words=200, overlap=40):
-    chunks, gid = [], 0
-    for page_num, text in pages_text:
-        text = re.sub(r'[ \t]+', ' ', text)
-        sections, last_h, last_p = [], 'Início', 0
-        for m in SECTION_RE.finditer(text):
-            if m.start() > last_p: sections.append((last_h, text[last_p:m.start()]))
-            last_h = m.group(0).strip()[:60]; last_p = m.end()
-        sections.append((last_h, text[last_p:]))
-        for sec, sec_text in sections:
-            paras = [p.strip() for p in re.split(r'\n\n+', sec_text) if len(p.strip()) > 30]
-            buf = []
-            for para in paras:
-                words = para.split()
-                if len(buf) + len(words) > chunk_words and buf:
-                    txt = ' '.join(buf)
-                    if len(txt) > 50:
-                        chunks.append(Chunk(f'{doc_id}-{gid:04d}', doc_id, filename, sec, txt, page_num, gid)); gid += 1
-                    buf = buf[-overlap:]
-                buf.extend(words)
-            if len(' '.join(buf)) > 50:
-                chunks.append(Chunk(f'{doc_id}-{gid:04d}', doc_id, filename, sec, ' '.join(buf), page_num, gid)); gid += 1
-    return chunks
-
-def chunk_plain(text, doc_id, filename, chunk_words=200, overlap=40):
-    sections, last_h, last_p = [], 'Início', 0
-    for m in SECTION_RE.finditer(text):
-        if m.start() > last_p: sections.append((last_h, text[last_p:m.start()]))
-        last_h = m.group(0).strip()[:60]; last_p = m.end()
-    sections.append((last_h, text[last_p:]))
-    chunks, gid = [], 0
-    for sec, sec_text in sections:
-        paras = [p.strip() for p in re.split(r'\n\n+', sec_text) if len(p.strip()) > 30]
-        buf = []
-        for para in paras:
-            words = para.split()
-            if len(buf) + len(words) > chunk_words and buf:
-                txt = ' '.join(buf)
-                if len(txt) > 50:
-                    chunks.append(Chunk(f'{doc_id}-{gid:04d}', doc_id, filename, sec, txt, 0, gid)); gid += 1
-                buf = buf[-overlap:]
-            buf.extend(words)
-        if len(' '.join(buf)) > 50:
-            chunks.append(Chunk(f'{doc_id}-{gid:04d}', doc_id, filename, sec, ' '.join(buf), 0, gid)); gid += 1
-    return chunks
-
-# ─────────────────────────────────────────────────────────────────────
-# INDEX BUILDER
-# ─────────────────────────────────────────────────────────────────────
 @st.cache_resource(show_spinner=False)
-def build_index_from_folder():
+def build_index():
     from rank_bm25 import BM25Okapi
     from sentence_transformers import SentenceTransformer
     import faiss
@@ -243,252 +133,121 @@ def build_index_from_folder():
     docs_path = Path("documents")
     if not docs_path.exists(): docs_path.mkdir()
     
-    SUPPORTED = {'.pdf', '.rmd', '.md', '.txt'}
-    file_contents = []
-    for f in sorted(docs_path.glob("*")):
-        if f.suffix.lower() in SUPPORTED:
-            file_contents.append((f.name, f.read_bytes()))
-
-    if not file_contents: return None
+    files = sorted([f for f in docs_path.glob("*") if f.suffix.lower() in {'.pdf', '.md', '.txt'}])
+    if not files: return None
 
     all_meta, all_chunks = [], []
-    for fname, data in file_contents:
-        ext = Path(fname).suffix.lower()
-        doc_id = make_id(fname)
-        if ext == '.pdf':
-            pages_text, page_count = extract_pdf(data)
-            raw = re.sub(r'\n{3,}', '\n\n', '\n\n'.join(t for _, t in pages_text)).strip()
-            chunks = chunk_pdf(pages_text, doc_id, fname)
+    for f in files:
+        doc_id = make_id(f.name)
+        data = f.read_bytes()
+        if f.suffix.lower() == '.pdf':
+            pages, _ = extract_pdf(data)
+            for p_num, text in pages:
+                paras = [p.strip() for p in text.split('\n\n') if len(p.strip()) > 40]
+                for p in paras:
+                    all_chunks.append(Chunk(f"{doc_id}-{len(all_chunks)}", doc_id, f.name, "Geral", p, p_num, len(all_chunks)))
         else:
-            raw = extract_text(data)
-            raw = re.sub(r'[ \t]+', ' ', raw); raw = re.sub(r'\n{3,}', '\n\n', raw).strip()
-            chunks = chunk_plain(raw, doc_id, fname)
-            page_count = 0
-        all_meta.append(DocMeta(
-            doc_id=doc_id, filename=fname,
-            file_type=ext.lstrip('.').upper(), title=Path(fname).stem.replace('_', ' '),
-            version=get_version(raw), date=get_date(raw),
-            page_count=page_count, char_count=len(raw)
-        ))
-        all_chunks.extend(chunks)
+            text = data.decode('utf-8', errors='replace')
+            paras = [p.strip() for p in text.split('\n\n') if len(p.strip()) > 40]
+            for p in paras:
+                all_chunks.append(Chunk(f"{doc_id}-{len(all_chunks)}", doc_id, f.name, "Geral", p, 0, len(all_chunks)))
+        
+        all_meta.append(DocMeta(doc_id=doc_id, filename=f.name, file_type=f.suffix[1:].upper()))
 
-    tok_corpus = [tokenize(c.text) for c in all_chunks]
-    bm25 = BM25Okapi(tok_corpus)
     model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
-    embeddings = model.encode(
-        [c.text for c in all_chunks], batch_size=32,
-        show_progress_bar=False, normalize_embeddings=True
-    ).astype(np.float32)
-
-    dim = embeddings.shape[1]
-    faiss_idx = faiss.IndexFlatIP(dim)
+    embeddings = model.encode([c.text for c in all_chunks], normalize_embeddings=True).astype(np.float32)
+    faiss_idx = faiss.IndexFlatIP(embeddings.shape[1])
     faiss_idx.add(embeddings)
-
-    return {
-        'chunks': all_chunks, 'meta': {m.doc_id: m for m in all_meta},
-        'bm25': bm25, 'faiss': faiss_idx, 'embeddings': embeddings,
-        'model': model, 'filenames': [f for f, _ in file_contents],
-    }
+    
+    return {'chunks': all_chunks, 'meta': {m.doc_id: m for m in all_meta}, 
+            'bm25': BM25Okapi([tokenize(c.text) for c in all_chunks]), 
+            'faiss': faiss_idx, 'embeddings': embeddings, 'model': model}
 
 # ─────────────────────────────────────────────────────────────────────
-# RETRIEVAL
+# RAG CORE
 # ─────────────────────────────────────────────────────────────────────
-def retrieve(query, idx, top_k=4, doc_filter=None):
-    tokens = tokenize(query)
-    bm25_sc = idx['bm25'].get_scores(tokens) if tokens else np.zeros(len(idx['chunks']))
-    bm25_rank = {int(i): r for r, i in enumerate(np.argsort(bm25_sc)[::-1][:50])}
+def retrieve(query, idx, top_k=4):
     q_vec = idx['model'].encode([query], normalize_embeddings=True).astype(np.float32)
-    sc, ids = idx['faiss'].search(q_vec, 50)
-    sem_rank = {int(ids[0][i]): i for i in range(len(ids[0])) if ids[0][i] >= 0}
-    sem_sc   = {int(ids[0][i]): float(sc[0][i]) for i in range(len(ids[0])) if ids[0][i] >= 0}
-    all_ids = set(bm25_rank) | set(sem_rank)
-    rrf = {cid: 1/(60+bm25_rank.get(cid,50)) + 1/(60+sem_rank.get(cid,50)) for cid in all_ids}
-    top = sorted(rrf.items(), key=lambda x: x[1], reverse=True)[:top_k]
-    mx = top[0][1] if top else 1
-    results = []
-    for cid, score in top:
-        c = idx['chunks'][cid]
-        if doc_filter and doc_filter != 'Todos' and c.filename != doc_filter: continue
-        results.append({'chunk': c, 'rrf': score, 'rel': score/mx,
-                        'sem': sem_sc.get(cid,0), 'bm25': float(bm25_sc[cid])})
-    return results
+    sc, ids = idx['faiss'].search(q_vec, top_k)
+    return [{'chunk': idx['chunks'][ids[0][i]], 'rel': float(sc[0][i])} for i in range(len(ids[0])) if ids[0][i] >= 0]
+
+def generate(query, results, model_id):
+    ctx = "\n---\n".join([f"Fonte [{i+1}]: {r['chunk'].text}" for i, r in enumerate(results)])
+    prompt = f"Você é um especialista em medicina laboratorial. Responda em Português usando:\n{ctx}\n\nPergunta: {query}"
+    
+    data = json.dumps({"model": model_id, "messages": [{"role": "user", "content": prompt}]}).encode()
+    
+    # AJUSTE DE HEADERS PARA EVITAR 404
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://labdocs-brasil.streamlit.app", # Streamlit Cloud URL
+        "X-Title": "LabDocs Brasil"
+    }
+    
+    req = urllib.request.Request("https://openrouter.ai/api/v1/chat/completions", data=data, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=60) as response:
+            res = json.loads(response.read())
+            ans = res['choices'][0]['message']['content']
+            return ans, len(prompt.split()), len(ans.split())
+    except Exception as e:
+        raise Exception(f"Erro na OpenRouter: {str(e)}")
 
 # ─────────────────────────────────────────────────────────────────────
-# HELPERS
-# ─────────────────────────────────────────────────────────────────────
-def best_snippet(text, query, max_w=100):
-    sents = re.split(r'(?<=[.!?\n])\s+', text)
-    if len(sents) <= 2: return ' '.join(text.split()[:max_w])
-    qw = set(query.lower().split())
-    scores = [len(set(s.lower().split()) & qw) for s in sents]
-    bi = max(range(len(scores)), key=lambda i: scores[i])
-    start, end, wc = bi, bi, len(sents[bi].split())
-    while wc < max_w:
-        cl, cr = start > 0, end < len(sents)-1
-        if not cl and not cr: break
-        lw = len(sents[start-1].split()) if cl else 9999
-        rw = len(sents[end+1].split())   if cr else 9999
-        if cl and lw <= rw:
-            if wc+lw > max_w: break
-            start -= 1; wc += lw
-        elif cr:
-            if wc+rw > max_w: break
-            end += 1; wc += rw
-        else: break
-    return ' '.join(sents[start:end+1])
-
-NUM_RE   = re.compile(r'\b(\d+[\.,]?\d*)\s*(%|mg|mL|g|dL|µL|UI|mmol|nmol|h|min|°C|dias?|horas?)\b', re.I)
-PRESC_RE = re.compile(r'\b(deve|deverá|não deve|obrigatório|proibido|shall|must|required)\b', re.I)
-
-def detect_conflicts(results, embeddings):
-    conflicts = []
-    for i in range(len(results)):
-        for j in range(i+1, len(results)):
-            ca, cb = results[i]['chunk'], results[j]['chunk']
-            if ca.doc_id == cb.doc_id: continue
-            sim = float(np.dot(embeddings[ca.position], embeddings[cb.position]))
-            if sim < 0.82: continue
-            na = set(m.group(0) for m in NUM_RE.finditer(ca.text))
-            nb = set(m.group(0) for m in NUM_RE.finditer(cb.text))
-            if (na-nb) and (nb-na):
-                conflicts.append({'sev':'Alta','desc':f'Divergência numérica entre "{ca.filename}" e "{cb.filename}"'})
-            elif PRESC_RE.search(ca.text) and PRESC_RE.search(cb.text):
-                conflicts.append({'sev':'Média','desc':f'Orientações conflitantes entre "{ca.filename}" e "{cb.filename}"'})
-    return conflicts
-
-def generate(query, results, meta_map, model_id):
-    parts = []
-    for i, r in enumerate(results, 1):
-        c = r['chunk']; m = meta_map.get(c.doc_id)
-        snip = best_snippet(c.text, query)
-        page_ref = f" | p. {c.page}" if c.page > 0 else ''
-        v = m.version if m else 'N/A'; d = m.date if m else 'N/A'
-        parts.append(f"[{i}] {c.filename} | v{v} | {d}{page_ref} | {c.section[:50]}\n{snip}")
-    ctx = '\n---\n'.join(parts)
-    prompt = (
-        "Assistente de medicina laboratorial. Responda em português com base nos trechos abaixo.\n"
-        "1. Cite a fonte como [n]. 2. Se não encontrar, contextualize o que houver.\n\n"
-        f"TRECHOS:\n{ctx}\n\nPERGUNTA: {query}"
-    )
-    body = json.dumps({"model": model_id, "messages": [{"role": "user", "content": prompt}]}).encode()
-    req = urllib.request.Request(
-        "https://openrouter.ai/api/v1/chat/completions", data=body,
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    )
-    resp = json.loads(urllib.request.urlopen(req, timeout=60).read())
-    text = resp['choices'][0]['message']['content']
-    return text, len(prompt.split()), len(text.split())
-
-# ─────────────────────────────────────────────────────────────────────
-# INITIALIZATION
-# ─────────────────────────────────────────────────────────────────────
-if 'index'   not in st.session_state: st.session_state.index   = None
-if 'history' not in st.session_state: st.session_state.history = []
-
-if st.session_state.index is None:
-    with st.spinner("Indexando documentos da pasta `documents/`..."):
-        st.session_state.index = build_index_from_folder()
-
-# ─────────────────────────────────────────────────────────────────────
-# SIDEBAR
+# UI SIDEBAR
 # ─────────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### ⚙️ Configurações")
-    top_k = st.slider("Top-K fontes", 2, 8, 4)
+    # MODELOS GRATUITOS PRINCIPAIS
     model_id = st.selectbox("Modelo (gratuito)", [
         "google/gemini-2.0-flash-exp:free",
         "deepseek/deepseek-r1:free",
         "deepseek/deepseek-v3:free",
         "meta-llama/llama-3.3-70b-instruct:free",
-        "qwen/qwen-2.5-72b-instruct:free",
         "meta-llama/llama-3.1-8b-instruct:free",
-        "mistralai/mistral-7b-instruct:free",
-        "microsoft/phi-3-medium-128k-instruct:free",
+        "qwen/qwen-2.5-72b-instruct:free"
     ])
-
-    if st.session_state.index:
-        idx = st.session_state.index
-        docs = sorted(set(c.filename for c in idx['chunks']))
-        doc_filter = st.selectbox("Filtrar por documento", ['Todos'] + docs)
-        st.markdown("---")
-        st.markdown("**Documentos indexados:**")
-        for fname in idx.get('filenames', docs): st.caption(f"📄 {fname}")
-        if st.button("↩ Limpar histórico"):
-            st.session_state.history = []
-            st.rerun()
-    else: doc_filter = 'Todos'
+    top_k = st.slider("Fontes", 2, 8, 4)
+    if st.button("↩ Limpar histórico"):
+        st.session_state.history = []; st.rerun()
 
 # ─────────────────────────────────────────────────────────────────────
-# MAIN
+# MAIN UI
 # ─────────────────────────────────────────────────────────────────────
-st.markdown("""
-<div class="lab-header">
-    <div class="lab-title">🧪 LabDocs Brasil</div>
-    <div class="lab-subtitle">Desafio SBPC/ML 2026–2027 · RAG + LLM para Medicina Laboratorial</div>
-    <div class="badge-row">
-        <span class="badge">BM25 + Semântico</span>
-        <span class="badge">Rastreabilidade ISO 15189</span>
-        <span class="badge">Detecção de Conflitos</span>
-    </div>
-</div>
-""", unsafe_allow_html=True)
+st.markdown('<div class="lab-header"><div class="lab-title">🧪 LabDocs Brasil</div><div class="lab-subtitle">Desafio SBPC/ML · RAG Laboratorial</div></div>', unsafe_allow_html=True)
 
-if not st.session_state.index:
-    st.error("⚠️ Adicione arquivos PDF/MD à pasta `documents/`.")
-    st.stop()
+if 'index' not in st.session_state:
+    with st.spinner("Indexando documentos..."): st.session_state.index = build_index()
+if 'history' not in st.session_state: st.session_state.history = []
 
-idx = st.session_state.index
-
-# Histórico
 for h in st.session_state.history:
     with st.chat_message("user"): st.write(h['q'])
     with st.chat_message("assistant", avatar="🧪"):
-        c_cls = {'Alta':'conf-alta','Média':'conf-media','Baixa':'conf-baixa'}[h['conf_label']]
-        st.markdown(f"""
-        <div class="answer-card">
-            <div class="answer-meta">
-                <span class="meta-pill {c_cls}">Consistência: {h['conf_label']} ({h['conf']:.0%})</span>
-                <span class="meta-pill">📥 {h['tok_in']} | 📤 {h['tok_out']}</span>
-            </div>
-            <div class="answer-text">{h['answer']}</div>
-        </div>""", unsafe_allow_html=True)
+        st.markdown(f'<div class="answer-card"><div class="answer-text">{h["answer"]}</div></div>', unsafe_allow_html=True)
 
-# Novo Input
-query = st.chat_input("Faça uma pergunta...")
-if query:
+query = st.chat_input("Pergunte sobre os documentos...")
+if query and st.session_state.index:
     with st.chat_message("user"): st.write(query)
     with st.chat_message("assistant", avatar="🧪"):
-        with st.spinner("Gerando resposta..."):
+        with st.spinner("Analisando documentos..."):
             try:
-                res = retrieve(query, idx, top_k=top_k, doc_filter=doc_filter if doc_filter != 'Todos' else None)
-                if not res:
-                    st.warning("Sem resultados.")
-                    st.stop()
+                res = retrieve(query, st.session_state.index, top_k=top_k)
+                ans, t_in, t_out = generate(query, res, model_id)
                 
-                conflicts = detect_conflicts(res, idx['embeddings'])
-                ans, t_in, t_out = generate(query, res, idx['meta'], model_id)
+                # Interface de Resposta
+                avg_rel = sum(r['rel'] for r in res)/len(res)
+                label = "Alta" if avg_rel > 0.7 else "Média" if avg_rel > 0.4 else "Baixa"
                 
-                # Lógica de Confiança
-                avg_rel = sum(r['rel'] for r in res) / len(res)
-                n_docs  = len(set(r['chunk'].doc_id for r in res))
-                conf = min(1.0, avg_rel*0.6 + n_docs/3*0.3 - len([c for c in conflicts if c['sev']=='Alta'])*0.15)
-                conf_label = 'Alta' if conf >= 0.65 else 'Média' if conf >= 0.35 else 'Baixa'
-                conf_class = {'Alta':'conf-alta','Média':'conf-media','Baixa':'conf-baixa'}[conf_label]
-
                 st.markdown(f"""
                 <div class="answer-card">
                     <div class="answer-meta">
-                        <span class="meta-pill {conf_class}">Consistência: {conf_label} ({conf:.0%})</span>
-                        <span class="meta-pill">📥 {t_in} tokens | 📤 {t_out} tokens</span>
-                        <span class="meta-pill">gratuito</span>
+                        <span class="meta-pill">Confiança: {label}</span>
+                        <span class="meta-pill">📥 {t_in} | 📤 {t_out} tokens</span>
                     </div>
                     <div class="answer-text">{ans}</div>
                 </div>""", unsafe_allow_html=True)
-
-                st.session_state.history.append({
-                    'q': query, 'answer': ans, 'results': res,
-                    'conflicts': conflicts, 'conf': conf, 'conf_label': conf_label,
-                    'tok_in': t_in, 'tok_out': t_out
-                })
+                
+                st.session_state.history.append({'q': query, 'answer': ans, 'conf_label': label})
             except Exception as e:
                 st.error(f"Erro: {e}")
