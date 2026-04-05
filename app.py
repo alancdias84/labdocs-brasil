@@ -10,7 +10,7 @@ from io import BytesIO
 # PAGE CONFIG
 # ─────────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="LabDocs Brasil",
+    page_title="LINA chat",
     page_icon="🧪",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -797,7 +797,7 @@ with st.sidebar:
 # MAIN UI
 # ─────────────────────────────────────────────────────────────────────
 st.markdown(
-    '<div class="lab-header"><div class="lab-title">🧪 LabDocs Brasil</div><div class="lab-subtitle">Desafio SBPC/ML · RAG Laboratorial</div></div>',
+    '<div class="lab-header"><div class="lab-title">🧪 LINA Chat</div><div class="lab-subtitle">Laboratory Intelligence for Normative Assistance · RAG + LLMs </div></div>',
     unsafe_allow_html=True
 )
 
