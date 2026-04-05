@@ -797,7 +797,7 @@ with st.sidebar:
 # MAIN UI
 # ─────────────────────────────────────────────────────────────────────
 st.markdown(
-    '<div class="lab-header"><div class="lab-title">🧪 LINA Chat</div><div class="lab-subtitle">Laboratory Intelligence for Normative Assistance · RAG + LLMs </div></div>',
+    '<div class="lab-header"><div class="lab-title">🧪 LINA Chat</div><div class="lab-subtitle">Laboratory Intelligence for Normative Assistance (LINA): utilizando RAG + LLMs </div></div>',
     unsafe_allow_html=True
 )
 
