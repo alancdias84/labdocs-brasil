@@ -201,12 +201,12 @@ with st.sidebar:
     st.markdown("### ⚙️ Configurações")
     # MODELOS GRATUITOS PRINCIPAIS
     model_id = st.selectbox("Modelo (gratuito)", [
-        "google/gemini-2.0-flash-exp:free",
-        "deepseek/deepseek-r1:free",
-        "deepseek/deepseek-v3:free",
-        "meta-llama/llama-3.3-70b-instruct:free",
-        "meta-llama/llama-3.1-8b-instruct:free",
-        "qwen/qwen-2.5-72b-instruct:free"
+        "qwen/qwen3.6-plus:free",
+        "stepfun/step-3.5-flash:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "nvidia/nemotron-3-nano-30b-a3b:free",
+        "arcee-ai/trinity-large-preview:free",
+        "minimax/minimax-m2.5:free"
     ])
     top_k = st.slider("Fontes", 2, 8, 4)
     if st.button("↩ Limpar histórico"):
