@@ -1,5 +1,5 @@
 import streamlit as st
-import re, json, hashlib, html, urllib.request
+import re, json, hashlib, html, urllib.request, urllib.error
 import numpy as np
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -215,7 +215,7 @@ def build_index():
                 text = normalize_text(text)
                 total_chars += len(text)
                 split_chunks = split_text_into_chunks(text)
-                for idx_local, piece in enumerate(split_chunks):
+                for piece in split_chunks:
                     all_chunks.append(
                         Chunk(
                             chunk_id=f"{doc_id}-{len(all_chunks)}",
@@ -240,7 +240,7 @@ def build_index():
             text = data.decode('utf-8', errors='replace')
             text = normalize_text(text)
             split_chunks = split_text_into_chunks(text)
-            for idx_local, piece in enumerate(split_chunks):
+            for piece in split_chunks:
                 all_chunks.append(
                     Chunk(
                         chunk_id=f"{doc_id}-{len(all_chunks)}",
@@ -288,7 +288,6 @@ def build_index():
 def retrieve(query, idx, top_k=6, faiss_k=12, bm25_k=12):
     chunks = idx['chunks']
 
-    # Dense retrieval
     q_vec = idx['model'].encode([query], normalize_embeddings=True).astype(np.float32)
     dense_scores, dense_ids = idx['faiss'].search(q_vec, faiss_k)
 
@@ -297,11 +296,9 @@ def retrieve(query, idx, top_k=6, faiss_k=12, bm25_k=12):
         if cid >= 0:
             dense_map[int(cid)] = float(score)
 
-    # Sparse retrieval
     bm25_scores = idx['bm25'].get_scores(tokenize(query))
     bm25_top_ids = np.argsort(bm25_scores)[::-1][:bm25_k]
 
-    # Normalize sparse scores
     sparse_map = {}
     sparse_values = [float(bm25_scores[i]) for i in bm25_top_ids]
     sparse_max = max(sparse_values) if sparse_values else 1.0
@@ -311,7 +308,6 @@ def retrieve(query, idx, top_k=6, faiss_k=12, bm25_k=12):
     for i in bm25_top_ids:
         sparse_map[int(i)] = (float(bm25_scores[i]) - sparse_min) / denom
 
-    # Fusion
     candidate_ids = set(dense_map.keys()) | set(sparse_map.keys())
     fused = []
     for cid in candidate_ids:
@@ -327,7 +323,6 @@ def retrieve(query, idx, top_k=6, faiss_k=12, bm25_k=12):
 
     fused.sort(key=lambda x: x['hybrid'], reverse=True)
 
-    # Remove near duplicates
     selected = []
     seen_texts = set()
     for item in fused:
@@ -341,6 +336,57 @@ def retrieve(query, idx, top_k=6, faiss_k=12, bm25_k=12):
     return selected
 
 # ─────────────────────────────────────────────────────────────────────
+# LOCAL FALLBACK
+# ─────────────────────────────────────────────────────────────────────
+def chunk_matches_query(query: str, text: str) -> bool:
+    q_terms = [t for t in tokenize(query) if len(t) >= 3]
+    if not q_terms:
+        return False
+
+    text_norm = normalize_text(text).lower()
+    hits = sum(1 for t in q_terms if t in text_norm)
+    return hits >= 1
+
+def local_extractive_answer(query: str, results):
+    fallback = "Não foram encontradas informações específicas sobre esse assunto nos documentos analisados."
+
+    if not results:
+        return fallback
+
+    matched = []
+    for i, r in enumerate(results, start=1):
+        txt = normalize_text(r['chunk'].text)
+        if chunk_matches_query(query, txt):
+            matched.append((i, txt))
+
+    if not matched:
+        return fallback
+
+    selected = matched[:3]
+    bullet_lines = []
+
+    for ref_id, txt in selected:
+        sentences = re.split(r'(?<=[\.\!\?])\s+', txt)
+        chosen = []
+
+        for s in sentences:
+            s = s.strip()
+            if len(s) < 40:
+                continue
+            if chunk_matches_query(query, s):
+                chosen.append(s)
+            if len(chosen) == 2:
+                break
+
+        if not chosen:
+            chosen = [txt[:350].strip()]
+
+        joined = " ".join(chosen).strip()
+        bullet_lines.append(f"- {joined} [{ref_id}]")
+
+    return "\n".join(bullet_lines)
+
+# ─────────────────────────────────────────────────────────────────────
 # PROMPT + GENERATION
 # ─────────────────────────────────────────────────────────────────────
 def build_context(results):
@@ -348,9 +394,10 @@ def build_context(results):
     for i, r in enumerate(results, start=1):
         c = r['chunk']
         page_info = f"p. {c.page}" if c.page and c.page > 0 else "sem página"
+        cleaned_text = normalize_text(c.text)
         block = (
             f"[{i}] Arquivo: {c.filename} | Seção: {c.section} | {page_info}\n"
-            f"Trecho:\n{c.text}"
+            f"Trecho:\n{cleaned_text}"
         )
         blocks.append(block)
     return "\n\n---\n\n".join(blocks)
@@ -371,11 +418,12 @@ REGRAS OBRIGATÓRIAS:
 4. Não escreva nada que não possa ser vinculado a pelo menos uma citação.
 5. Se o CONTEXTO não trouxer informação suficiente para responder de forma objetiva, responda exatamente:
    "Não foram encontradas informações específicas sobre esse assunto nos documentos analisados."
-6. Não use expressões como "em geral", "normalmente", "costuma", "pode", "é importante considerar", salvo se isso estiver explicitamente dito no CONTEXTO.
-7. Seja objetivo, técnico e assertivo.
-8. Não faça introdução desnecessária.
-9. Não invente conclusão.
-10. Quando houver múltiplos pontos documentais, organize a resposta em tópicos curtos.
+6. Se houver informação parcial no CONTEXTO, responda apenas com o que foi encontrado e cite as fontes correspondentes.
+7. Não use expressões como "em geral", "normalmente", "costuma", "pode", "é importante considerar", salvo se isso estiver explicitamente dito no CONTEXTO.
+8. Seja objetivo, técnico e assertivo.
+9. Não faça introdução desnecessária.
+10. Não invente conclusão.
+11. Quando houver múltiplos pontos documentais, organize a resposta em tópicos curtos.
 
 FORMATO DA RESPOSTA:
 - Entregue apenas a resposta final para o usuário.
@@ -415,48 +463,61 @@ def call_openrouter(prompt, model_id):
         headers=headers
     )
 
-    with urllib.request.urlopen(req, timeout=60) as response:
-        res = json.loads(response.read())
-        ans = res['choices'][0]['message']['content']
-        return ans, len(prompt.split()), len(ans.split())
+    try:
+        with urllib.request.urlopen(req, timeout=60) as response:
+            res = json.loads(response.read())
+            ans = res['choices'][0]['message']['content']
+            return ans, len(prompt.split()), len(ans.split())
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", errors="replace")
+        raise Exception(f"HTTPError {e.code}: {detail}")
+    except Exception as e:
+        raise Exception(str(e))
 
 def validate_answer(answer: str):
-    answer = answer.strip()
+    answer = (answer or "").strip()
 
     fallback = "Não foram encontradas informações específicas sobre esse assunto nos documentos analisados."
 
     if not answer:
-        return fallback, False, "Resposta vazia."
+        return "", False, "Resposta vazia."
 
     if answer == fallback:
         return answer, True, ""
 
     cites = re.findall(r'\[(\d+)\]', answer)
     if not cites:
-        return fallback, False, "Resposta sem citações."
+        return "", False, "Resposta sem citações."
 
-    # Se houver linha factual sem citação, ainda assim força fallback.
-    # Aqui a regra é dura de propósito.
-    non_empty_lines = [ln.strip() for ln in answer.splitlines() if ln.strip()]
-    factual_lines_without_citation = [
-        ln for ln in non_empty_lines
-        if not re.search(r'\[\d+\]', ln) and not ln.startswith("- ") and len(ln) > 25
-    ]
-    if factual_lines_without_citation:
-        return fallback, False, "Há linhas sem citação."
+    sentences = re.split(r'(?<=[\.\!\?])\s+|\n+', answer)
+    cited_sentences = [s for s in sentences if re.search(r'\[\d+\]', s)]
+
+    if not cited_sentences:
+        return "", False, "Nenhuma sentença citada."
 
     return answer, True, ""
 
 def generate(query, results, model_id):
+    real_fallback = "Não foram encontradas informações específicas sobre esse assunto nos documentos analisados."
+
     if not results:
-        fallback = "Não foram encontradas informações específicas sobre esse assunto nos documentos analisados."
-        return fallback, 0, len(fallback.split()), False, "Nenhum trecho recuperado."
+        return real_fallback, 0, len(real_fallback.split()), False, "Nenhum trecho recuperado."
 
     prompt = build_grounded_prompt(query, results)
-    raw_answer, t_in, t_out = call_openrouter(prompt, model_id)
+
+    try:
+        raw_answer, t_in, t_out = call_openrouter(prompt, model_id)
+    except Exception as e:
+        local_answer = local_extractive_answer(query, results)
+        return local_answer, len(prompt.split()), len(local_answer.split()), False, f"Falha no modelo: {str(e)}"
+
     validated_answer, ok, reason = validate_answer(raw_answer)
 
-    return validated_answer, t_in, t_out, ok, reason
+    if ok:
+        return validated_answer, t_in, t_out, True, ""
+
+    local_answer = local_extractive_answer(query, results)
+    return local_answer, t_in, len(local_answer.split()), False, f"Saída original rejeitada: {reason}"
 
 # ─────────────────────────────────────────────────────────────────────
 # UI HELPERS
@@ -591,7 +652,7 @@ if query and st.session_state.index:
 
                 warn_msg = ""
                 if not ok:
-                    warn_msg = f"Saída original do modelo foi rejeitada pelo validador documental: {reason}"
+                    warn_msg = f"Saída original do modelo não foi usada integralmente. Motivo: {reason}"
 
                 if warn_msg:
                     st.markdown(f'<div class="warning-box">{escape_html(warn_msg)}</div>', unsafe_allow_html=True)
