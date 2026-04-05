@@ -45,7 +45,9 @@ html, body, [class*="css"] { font-family: 'Source Sans 3', sans-serif; }
     background: white; border-radius: 14px; padding: 24px 28px; margin-bottom: 16px;
     border: 1px solid #ddd0f5; box-shadow: 0 2px 16px rgba(150,120,210,0.10);
 }
-.answer-meta { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+.answer-meta {
+    display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;
+}
 .meta-pill {
     background: white; border: 1px solid #e0d8f5; border-radius: 100px;
     padding: 3px 12px; font-size: 12px; color: #6b4fa0; font-weight: 500;
@@ -55,8 +57,29 @@ html, body, [class*="css"] { font-family: 'Source Sans 3', sans-serif; }
 .meta-pill.conf-baixa { background: #fff5f5; border-color: #f5b8b8; color: #8a2020; }
 
 .answer-text {
-    font-size: 15px; line-height: 1.85; color: #2d2840;
-    white-space: pre-wrap; word-break: break-word;
+    font-size: 15px;
+    line-height: 1.72;
+    color: #2d2840;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+}
+.answer-text p {
+    margin: 0 0 0.7rem 0;
+}
+.answer-text p:last-child {
+    margin-bottom: 0;
+}
+.answer-text ul {
+    margin: 0.3rem 0 0.85rem 1.15rem;
+    padding-left: 1.1rem;
+}
+.answer-text li {
+    margin: 0.24rem 0;
+    line-height: 1.65;
+}
+.answer-text br.tight {
+    line-height: 0.55;
 }
 
 .src-card {
@@ -260,6 +283,42 @@ def friendly_model_error(raw_error: str) -> str:
     if "empty response" in txt:
         return "O serviço de IA não retornou conteúdo utilizável."
     return "Não foi possível gerar a resposta com os modelos automáticos disponíveis neste momento."
+
+# ─────────────────────────────────────────────────────────────────────
+# FORMAT HELPERS
+# ─────────────────────────────────────────────────────────────────────
+def format_answer_html(text: str) -> str:
+    text = (text or "").replace("\r\n", "\n").replace("\r", "\n")
+    text = re.sub(r'\n{3,}', '\n\n', text).strip()
+
+    lines = [ln.rstrip() for ln in text.split("\n")]
+    html_parts = []
+    list_buffer = []
+
+    def flush_list():
+        nonlocal list_buffer
+        if list_buffer:
+            items = "".join(f"<li>{html.escape(item)}</li>" for item in list_buffer)
+            html_parts.append(f"<ul>{items}</ul>")
+            list_buffer = []
+
+    for raw_line in lines:
+        line = raw_line.strip()
+
+        if not line:
+            flush_list()
+            continue
+
+        bullet_match = re.match(r"^[-•*]\s+(.*)$", line)
+        if bullet_match:
+            list_buffer.append(bullet_match.group(1).strip())
+            continue
+
+        flush_list()
+        html_parts.append(f"<p>{html.escape(line)}</p>")
+
+    flush_list()
+    return "".join(html_parts) if html_parts else f"<p>{html.escape(text)}</p>"
 
 # ─────────────────────────────────────────────────────────────────────
 # EXTRACTION
@@ -759,6 +818,7 @@ for h in st.session_state.history:
         st.write(h['q'])
 
     with st.chat_message("assistant", avatar="🧪"):
+        formatted_answer = format_answer_html(h["answer"])
         st.markdown(
             f"""
             <div class="answer-card">
@@ -767,7 +827,7 @@ for h in st.session_state.history:
                     <span class="meta-pill">Modelo usado: {escape_html(h.get('used_model', 'N/A'))}</span>
                     <span class="meta-pill">📥 {h['t_in']} | 📤 {h['t_out']} tokens</span>
                 </div>
-                <div class="answer-text">{escape_html(h["answer"])}</div>
+                <div class="answer-text">{formatted_answer}</div>
             </div>
             """,
             unsafe_allow_html=True
@@ -789,6 +849,7 @@ if query and st.session_state.index:
                 res = retrieve(query, st.session_state.index)
                 ans, t_in, t_out, ok, reason, used_model = generate(query, res)
                 conf_label, conf_class = confidence_label(res)
+                formatted_answer = format_answer_html(ans)
 
                 st.markdown(
                     f"""
@@ -798,7 +859,7 @@ if query and st.session_state.index:
                             <span class="meta-pill">Modelo usado: {escape_html(used_model)}</span>
                             <span class="meta-pill">📥 {t_in} | 📤 {t_out} tokens</span>
                         </div>
-                        <div class="answer-text">{escape_html(ans)}</div>
+                        <div class="answer-text">{formatted_answer}</div>
                     </div>
                     """,
                     unsafe_allow_html=True
