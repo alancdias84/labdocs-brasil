@@ -462,7 +462,7 @@ for h in st.session_state.history:
         st.markdown(f"""
         <div class="answer-card">
             <div class="answer-meta">
-                <span class="meta-pill {conf_class}">Confiança: {h['conf_label']} ({h['conf']:.0%})</span>
+                <span class="meta-pill {conf_class}">Consistência do resgate: {conf_label} ({conf:.0%})</span>
                 <span class="meta-pill">📥 {h['tok_in']} tokens</span>
                 <span class="meta-pill">📤 {h['tok_out']} tokens</span>
                 <span class="meta-pill">gratuito</span>
