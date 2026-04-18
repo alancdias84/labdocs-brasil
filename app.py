@@ -112,12 +112,12 @@ div[data-testid="stSidebar"] { background: white; border-right: 1px solid #ece8f
 api_key = st.secrets.get("OPENROUTER_API_KEY", "")
 
 MODEL_CANDIDATES = [
-    "qwen/qwen3.6-plus:free",
-    "stepfun/step-3.5-flash:free",
-    "nvidia/nemotron-3-super-120b-a12b:free",
-    "nvidia/nemotron-3-nano-30b-a3b:free",
-    "arcee-ai/trinity-large-preview:free",
-    "minimax/minimax-m2.5:free"
+    "openai/gpt-oss-120b:free",
+    "openai/gpt-oss-20b:free",
+    "google/gemma-3-27b-it:free",
+    "google/gemma-3-12b-it:free",
+    "google/gemma-3-4b-it:free",
+    "qwen/qwen3.6-plus:free"
 ]
 
 # Controle interno de recuperação
